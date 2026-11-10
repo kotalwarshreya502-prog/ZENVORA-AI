@@ -6,6 +6,8 @@
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"magenta,cyan\" \"npm run server\" \"npm run client\"",
     "client": "npm --prefix frontend run dev",
     "server": "npm --prefix backend run dev",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build && npm --prefix backend install",
+    "start": "node backend/server.js",
     "test:db": "npm --prefix backend run test:db",
     "test:verify": "npm --prefix backend run test:verify"
   },

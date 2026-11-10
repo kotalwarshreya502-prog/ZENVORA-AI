@@ -1,6 +1,7 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import fs from 'fs';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
@@ -66,20 +67,29 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ─── Root Welcome ─────────────────────────────────────────────────────────────
-app.get('/', (_req, res) => {
-  res.status(200).json({
-    name: 'ZENVORA AI API',
-    tagline: 'Smarter Marketing. Sustainable Growth.',
-    status: 'online',
-    version: '1.0.0',
-    environment: NODE_ENV,
-    documentation: '/api/health',
-  });
-});
-
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api', apiRouter);
+
+// ─── Production Frontend Serving ──────────────────────────────────────────────
+const frontendDist = path.resolve(__dirname, '../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+} else {
+  app.get('/', (_req, res) => {
+    res.status(200).json({
+      name: 'ZENVORA AI API',
+      tagline: 'Smarter Marketing. Sustainable Growth.',
+      status: 'online',
+      version: '1.0.0',
+      environment: NODE_ENV,
+      documentation: '/api/health',
+    });
+  });
+}
 
 // ─── Error Handling ───────────────────────────────────────────────────────────
 app.use(notFound);

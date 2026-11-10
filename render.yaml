@@ -21,10 +21,8 @@ services:
         value: https://zenvora-ai-frontend.onrender.com
 
   # ZENVORA AI — Frontend Static Web App
-  - type: web
+  - type: static
     name: zenvora-ai-frontend
-    runtime: static
-    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist

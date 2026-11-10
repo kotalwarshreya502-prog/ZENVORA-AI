@@ -4,7 +4,7 @@ import axios from 'axios';
  * ZENVORA AI - Centralized Axios API Service
  * Base URL defaults to /api (proxied by Vite to port 5000) or VITE_API_URL
  */
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const baseURL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
 
 const apiClient = axios.create({
   baseURL,
