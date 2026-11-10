@@ -1,0 +1,24 @@
+{
+  "name": "zenvora-ai",
+  "version": "1.0.0",
+  "description": "ZENVORA AI — Smarter Marketing. Sustainable Growth. Commercial-quality AI-powered digital marketing SaaS platform.",
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"magenta,cyan\" \"npm run server\" \"npm run client\"",
+    "client": "npm --prefix frontend run dev",
+    "server": "npm --prefix backend run dev",
+    "test:db": "npm --prefix backend run test:db",
+    "test:verify": "npm --prefix backend run test:verify"
+  },
+  "keywords": [
+    "zenvora-ai",
+    "digital-marketing",
+    "saas",
+    "ai",
+    "mern"
+  ],
+  "author": "ZENVORA AI Team",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
