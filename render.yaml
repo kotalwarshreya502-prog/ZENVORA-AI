@@ -23,7 +23,6 @@ services:
   - type: web
     name: zenvora-ai-frontend
     runtime: static
-    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
@@ -34,4 +33,3 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://zenvora-ai-backend.onrender.com/api
-
