@@ -1,5 +1,6 @@
+
 services:
-  # ZENVORA AI — Backend API Web Service
+  # ZENVORA AI Backend
   - type: web
     name: zenvora-ai-backend
     runtime: node
@@ -11,8 +12,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 5000
       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
@@ -20,9 +19,11 @@ services:
       - key: CLIENT_URL
         value: https://zenvora-ai-frontend.onrender.com
 
-  # ZENVORA AI — Frontend Static Web App
-  - type: static
+  # ZENVORA AI Frontend
+  - type: web
     name: zenvora-ai-frontend
+    runtime: static
+    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
@@ -33,3 +34,4 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://zenvora-ai-backend.onrender.com/api
+
