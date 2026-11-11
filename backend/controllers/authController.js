@@ -65,7 +65,25 @@ export const login = async (req, res) => {
 
     // Support instant demo login for reviewer convenience
     if (email.toLowerCase().trim() === 'demo@zenvora.ai' && password === 'Demo1234!') {
-      const demoUser = await Storage.findUserByEmail('demo@zenvora.ai');
+      let demoUser = await Storage.findUserByEmail('demo@zenvora.ai');
+      // Seed demo user into Atlas if it doesn't exist yet (first production boot)
+      if (!demoUser) {
+        try {
+          demoUser = await Storage.createUser({
+            name: 'Demo Founder',
+            email: 'demo@zenvora.ai',
+            password: 'Demo1234!',
+            businessName: 'Zenvora Digital Labs',
+            industry: 'Marketing Technology',
+            role: 'admin',
+            onboardingCompleted: true,
+          });
+          console.log('[Auth] Demo user seeded into database on first login.');
+        } catch (seedErr) {
+          console.error('[Auth] Failed to seed demo user:', seedErr.message);
+          return errorResponse(res, 'Demo account setup failed. Please try again.', 500);
+        }
+      }
       const token = generateToken(demoUser._id.toString(), 'admin');
       return successResponse(res, 'Logged in with Demo Account', {
         token,
@@ -73,7 +91,7 @@ export const login = async (req, res) => {
           id: demoUser._id,
           name: demoUser.name,
           email: demoUser.email,
-          role: demoUser.role,
+          role: demoUser.role || 'admin',
           businessName: demoUser.businessName,
           onboardingCompleted: true,
         },
