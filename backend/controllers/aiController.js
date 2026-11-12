@@ -6,14 +6,24 @@ import { generateRequestId } from '../services/aiProviderService.js';
 
 export const generateMarketingContent = async (req, res) => {
   try {
-    const { type, platform, industry, targetAudience, topic, tone, language, keywords, length } = req.body;
+    const {
+      type, platform, industry, targetAudience, topic,
+      tone, language, keywords, length,
+      brandName = '',   // brand name entered in the form
+      objective = '',   // campaign objective entered in the form
+    } = req.body;
 
     if (!topic || topic.trim() === '') {
       return errorResponse(res, 'Content topic is required', 400);
     }
 
     const userId = req.user?.id || 'demo_user';
-    const brandGuidelines = await Storage.getBrandGuidelines(userId);
+
+    // Fetch user's saved brand guidelines (may be null for new users)
+    let brandGuidelines = null;
+    try {
+      brandGuidelines = await Storage.getBrandGuidelines(userId);
+    } catch (_) { /* non-critical — proceed without guidelines */ }
 
     const result = await GeminiService.generateMarketingContent({
       type,
@@ -25,6 +35,8 @@ export const generateMarketingContent = async (req, res) => {
       language,
       keywords,
       length,
+      brandName,
+      objective,
       brandGuidelines,
     });
 

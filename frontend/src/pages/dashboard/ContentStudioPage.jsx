@@ -1,6 +1,6 @@
 import {
   Bot, Check, Copy, Download, Edit3,
-  RefreshCw, Save, Sparkles, X
+  RefreshCw, Save, Sparkles, X,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import Badge from '../../components/ui/Badge';
@@ -8,54 +8,106 @@ import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { api } from '../../services/api';
 
-const PLATFORMS = ['Instagram', 'Facebook', 'LinkedIn', 'X (Twitter)', 'YouTube', 'Blog / Website'];
-const CONTENT_TYPES = ['Social Post', 'Ad Copy', 'Caption', 'Headline', 'Blog Intro', 'YouTube Description', 'Newsletter Snippet', 'Call to Action'];
-const TONES = ['Professional', 'Casual & Friendly', 'Authoritative', 'Inspirational', 'Humorous', 'Educational', 'Urgent'];
-const LENGTHS = ['Short (under 100 words)', 'Medium (100-250 words)', 'Long (250+ words)'];
-const LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Hindi', 'Portuguese', 'Arabic'];
+// ── Constants ─────────────────────────────────────────────────────────────────
+const PLATFORMS = [
+  'Instagram', 'Facebook', 'LinkedIn', 'X (Twitter)',
+  'YouTube', 'Blog / Website',
+];
 
+const CONTENT_TYPES = [
+  'Social Post', 'Ad Copy', 'Caption', 'Headline',
+  'Blog Intro', 'YouTube Description', 'Newsletter Snippet', 'Call to Action',
+];
+
+const INDUSTRIES = [
+  'E-commerce / Retail',
+  'Fashion & Apparel',
+  'Food & Beverage',
+  'Health & Fitness',
+  'Technology / SaaS',
+  'Education',
+  'Travel & Hospitality',
+  'Finance & Banking',
+  'Real Estate',
+  'Beauty & Personal Care',
+  'Automotive',
+  'Entertainment & Media',
+  'Non-Profit / NGO',
+  'B2B / Professional Services',
+  'Other',
+];
+
+const TONES = [
+  'Exciting & Energetic',
+  'Professional',
+  'Casual & Friendly',
+  'Authoritative',
+  'Inspirational',
+  'Humorous',
+  'Educational',
+  'Urgent & Direct',
+];
+
+const LENGTHS = [
+  'Short (under 100 words)',
+  'Medium (100-250 words)',
+  'Long (250+ words)',
+];
+
+const LANGUAGES = [
+  'English', 'Hindi', 'Spanish', 'French',
+  'German', 'Portuguese', 'Arabic',
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export const ContentStudioPage = () => {
-  // FRESH empty state — no pre-filled content
+  // Every field starts EMPTY — no demo/pre-filled data
   const [formData, setFormData] = useState({
-    topic: '',
-    platform: 'LinkedIn',
-    type: 'Social Post',
-    targetAudience: '',
-    tone: 'Professional',
-    language: 'English',
-    keywords: '',
-    objective: '',
-    length: 'Medium (100-250 words)',
+    brandName:      '',   // e.g. "Flipkart"
+    industry:       'E-commerce / Retail',
+    topic:          '',   // e.g. "Big Shopping Days Sale — up to 80% off"
+    platform:       'Instagram',
+    type:           'Social Post',
+    targetAudience: '',   // e.g. "Online shoppers aged 18-45 in India"
+    tone:           'Exciting & Energetic',
+    language:       'English',
+    keywords:       '',   // e.g. "Big Sale, Huge Discounts, Limited Offer, Shop Now"
+    objective:      '',   // e.g. "Drive traffic to Flipkart sale page and boost purchases"
+    length:         'Medium (100-250 words)',
   });
 
-  const [loading, setLoading] = useState(false);
-  const [output, setOutput] = useState(null);       // null = no generation yet
-  const [error, setError] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [output, setOutput]             = useState(null);   // null = nothing generated yet
+  const [error, setError]               = useState(null);
+  const [copied, setCopied]             = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing]       = useState(false);
   const [editedContent, setEditedContent] = useState('');
 
+  // ── Handlers ───────────────────────────────────────────────────────────────
   const handleGenerate = async (e) => {
     e?.preventDefault();
     if (!formData.topic.trim()) {
-      setError('Please enter a topic or subject to generate content.');
+      setError('Please enter a campaign topic or subject.');
       return;
     }
     setError(null);
     setLoading(true);
     setIsEditing(false);
+    setOutput(null); // always clear previous output before new generation
 
     try {
       const res = await api.generateContent({ ...formData });
       setOutput(res);
       setEditedContent(res.content || '');
     } catch (err) {
-      setError(err?.message || 'Content generation failed. Please check your connection and try again.');
+      setError(err?.message || 'Content generation failed. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleRegenerate = () => handleGenerate(null);
 
   const handleCopy = () => {
     const text = isEditing ? editedContent : output?.content;
@@ -71,7 +123,7 @@ export const ContentStudioPage = () => {
     if (!content) return;
     try {
       await api.createPost({
-        title: `${formData.type}: ${formData.topic.slice(0, 50)}`,
+        title: `${formData.brandName ? formData.brandName + ' — ' : ''}${formData.type}: ${formData.topic.slice(0, 50)}`,
         content,
         type: formData.type,
         platform: formData.platform,
@@ -87,38 +139,48 @@ export const ContentStudioPage = () => {
   const handleDownload = () => {
     const content = isEditing ? editedContent : output?.content;
     if (!content) return;
-    const filename = `${formData.topic.slice(0, 30).replace(/\s+/g, '_')}_${Date.now()}.txt`;
+    const slug = (formData.brandName || formData.topic).slice(0, 30).replace(/\s+/g, '_');
     const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${slug}_${Date.now()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const field = (label, children) => (
+  const set = (key) => (e) => setFormData(prev => ({ ...prev, [key]: e.target.value }));
+
+  // ── Shared style tokens ────────────────────────────────────────────────────
+  const sel = 'w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-brand-violet';
+  const inp = 'w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet';
+
+  const Field = ({ label, required, children }) => (
     <div className="space-y-1">
-      <label className="text-xs font-bold text-slate-700">{label}</label>
+      <label className="text-xs font-bold text-slate-700">
+        {label}{required && <span className="text-rose-400 ml-0.5">*</span>}
+      </label>
       {children}
     </div>
   );
 
-  const selectClass = "w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-brand-violet";
-  const inputClass = "w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet";
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* Header */}
+
+      {/* Page Header */}
       <div>
         <div className="flex items-center gap-2">
           <Badge variant="violet" size="sm">AI Content Studio</Badge>
           <span className="text-xs text-slate-400">• Powered by Google Gemini</span>
         </div>
         <h1 className="text-2xl font-extrabold text-brand-navy tracking-tight mt-1">Content Creator</h1>
-        <p className="text-xs text-slate-500 mt-0.5">Generate fresh, brand-aligned content for any platform. Every generation starts clean.</p>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Every generation is fresh and brand-specific — enter your brand name and topic to get content that actually matches.
+        </p>
       </div>
 
+      {/* Error Banner */}
       {error && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center justify-between gap-2">
           <span>{error}</span>
@@ -129,102 +191,128 @@ export const ContentStudioPage = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Input Form */}
+
+        {/* ── Left: Input Form ── */}
         <Card className="lg:col-span-5 p-6 space-y-4">
           <form onSubmit={handleGenerate} className="space-y-4">
-            {field('Topic / Subject *',
-              <input
-                type="text"
-                required
-                value={formData.topic}
-                onChange={e => setFormData({ ...formData, topic: e.target.value })}
-                placeholder="e.g. Black Friday sale, product launch, brand story..."
-                className={inputClass}
-              />
-            )}
 
-            <div className="grid grid-cols-2 gap-3">
-              {field('Platform',
-                <select
-                  value={formData.platform}
-                  onChange={e => setFormData({ ...formData, platform: e.target.value })}
-                  className={selectClass}
-                >
-                  {PLATFORMS.map(p => <option key={p}>{p}</option>)}
-                </select>
-              )}
-              {field('Content Type',
-                <select
-                  value={formData.type}
-                  onChange={e => setFormData({ ...formData, type: e.target.value })}
-                  className={selectClass}
-                >
-                  {CONTENT_TYPES.map(t => <option key={t}>{t}</option>)}
-                </select>
-              )}
+            {/* ── BRAND IDENTITY SECTION ── */}
+            <div className="pb-1 border-b border-slate-100">
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">
+                Brand Identity
+              </p>
+              <div className="space-y-3">
+                <Field label="Brand / Organisation Name">
+                  <input
+                    type="text"
+                    value={formData.brandName}
+                    onChange={set('brandName')}
+                    placeholder="e.g. Flipkart, Samsung, Nike, Your Business"
+                    className={inp}
+                  />
+                </Field>
+
+                <Field label="Industry">
+                  <select value={formData.industry} onChange={set('industry')} className={sel}>
+                    {INDUSTRIES.map(i => <option key={i}>{i}</option>)}
+                  </select>
+                </Field>
+              </div>
             </div>
 
-            {field('Target Audience',
-              <input
-                type="text"
-                value={formData.targetAudience}
-                onChange={e => setFormData({ ...formData, targetAudience: e.target.value })}
-                placeholder="e.g. Small business owners, 25-45, tech-savvy"
-                className={inputClass}
-              />
-            )}
+            {/* ── CAMPAIGN SECTION ── */}
+            <div className="pb-1 border-b border-slate-100">
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">
+                Campaign Details
+              </p>
+              <div className="space-y-3">
+                <Field label="Campaign Topic / Subject" required>
+                  <input
+                    type="text"
+                    required
+                    value={formData.topic}
+                    onChange={set('topic')}
+                    placeholder="e.g. Big Shopping Days — up to 80% off electronics"
+                    className={inp}
+                  />
+                </Field>
 
-            <div className="grid grid-cols-2 gap-3">
-              {field('Tone',
-                <select
-                  value={formData.tone}
-                  onChange={e => setFormData({ ...formData, tone: e.target.value })}
-                  className={selectClass}
-                >
-                  {TONES.map(t => <option key={t}>{t}</option>)}
-                </select>
-              )}
-              {field('Language',
-                <select
-                  value={formData.language}
-                  onChange={e => setFormData({ ...formData, language: e.target.value })}
-                  className={selectClass}
-                >
-                  {LANGUAGES.map(l => <option key={l}>{l}</option>)}
-                </select>
-              )}
+                <Field label="Campaign Objective">
+                  <input
+                    type="text"
+                    value={formData.objective}
+                    onChange={set('objective')}
+                    placeholder="e.g. Drive traffic to sale page, increase app downloads"
+                    className={inp}
+                  />
+                </Field>
+
+                <Field label="Target Audience">
+                  <input
+                    type="text"
+                    value={formData.targetAudience}
+                    onChange={set('targetAudience')}
+                    placeholder="e.g. Online shoppers aged 18-45 in India"
+                    className={inp}
+                  />
+                </Field>
+
+                <Field label="Keywords (comma-separated)">
+                  <input
+                    type="text"
+                    value={formData.keywords}
+                    onChange={set('keywords')}
+                    placeholder="e.g. Big Sale, Huge Discounts, Limited Offer, Shop Now"
+                    className={inp}
+                  />
+                  <p className="text-[10px] text-slate-400 pl-0.5 mt-0.5">
+                    Each keyword becomes a separate #hashtag — never merged into one tag.
+                  </p>
+                </Field>
+              </div>
             </div>
 
-            {field('Keywords (comma separated)',
-              <input
-                type="text"
-                value={formData.keywords}
-                onChange={e => setFormData({ ...formData, keywords: e.target.value })}
-                placeholder="e.g. organic growth, ROI, automation"
-                className={inputClass}
-              />
-            )}
+            {/* ── CONTENT OPTIONS SECTION ── */}
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">
+                Content Options
+              </p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Platform">
+                    <select value={formData.platform} onChange={set('platform')} className={sel}>
+                      {PLATFORMS.map(p => <option key={p}>{p}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Content Type">
+                    <select value={formData.type} onChange={set('type')} className={sel}>
+                      {CONTENT_TYPES.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </Field>
+                </div>
 
-            {field('Campaign Objective',
-              <input
-                type="text"
-                value={formData.objective}
-                onChange={e => setFormData({ ...formData, objective: e.target.value })}
-                placeholder="e.g. Drive signups, increase brand awareness"
-                className={inputClass}
-              />
-            )}
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Tone">
+                    <select value={formData.tone} onChange={set('tone')} className={sel}>
+                      {TONES.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Language">
+                    <select value={formData.language} onChange={set('language')} className={sel}>
+                      {LANGUAGES.map(l => <option key={l}>{l}</option>)}
+                    </select>
+                  </Field>
+                </div>
 
-            {field('Length',
-              <select
-                value={formData.length}
-                onChange={e => setFormData({ ...formData, length: e.target.value })}
-                className={selectClass}
-              >
-                {LENGTHS.map(l => <option key={l}>{l}</option>)}
-              </select>
-            )}
+                <Field label="Output Length">
+                  <select value={formData.length} onChange={set('length')} className={sel}>
+                    {LENGTHS.map(l => <option key={l}>{l}</option>)}
+                  </select>
+                </Field>
+              </div>
+            </div>
 
+            {/* Generate Buttons */}
             <div className="flex gap-2 pt-1">
               <Button
                 type="submit"
@@ -234,7 +322,7 @@ export const ContentStudioPage = () => {
                 className="flex-1 font-bold shadow-md shadow-brand-violet/25"
               >
                 {loading
-                  ? <><RefreshCw size={14} className="animate-spin" /><span>Generating...</span></>
+                  ? <><RefreshCw size={14} className="animate-spin" /><span>Generating…</span></>
                   : <><Sparkles size={14} className="text-brand-teal" /><span>Generate Content</span></>
                 }
               </Button>
@@ -243,8 +331,8 @@ export const ContentStudioPage = () => {
                   type="button"
                   variant="outline"
                   size="lg"
-                  onClick={handleGenerate}
-                  title="Regenerate with same params"
+                  onClick={handleRegenerate}
+                  title="Regenerate with same inputs"
                   className="px-3"
                 >
                   <RefreshCw size={14} />
@@ -254,8 +342,10 @@ export const ContentStudioPage = () => {
           </form>
         </Card>
 
-        {/* Right: Output */}
-        <Card className="lg:col-span-7 p-6 min-h-[500px] flex flex-col">
+        {/* ── Right: Output Panel ── */}
+        <Card className="lg:col-span-7 p-6 min-h-[560px] flex flex-col">
+
+          {/* Output Header */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
             <div className="flex items-center gap-2">
               <Bot size={16} className="text-brand-violet" />
@@ -265,12 +355,20 @@ export const ContentStudioPage = () => {
                   {output.model}
                 </span>
               )}
+              {output?.brandName && (
+                <span className="text-[10px] bg-brand-violet/10 text-brand-violet px-2 py-0.5 rounded-md font-semibold">
+                  {output.brandName}
+                </span>
+              )}
             </div>
+
+            {/* Action buttons — only shown when there's output */}
             {output && (
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => { setIsEditing(!isEditing); setEditedContent(output.content || ''); }}
                   className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-brand-violet text-xs flex items-center gap-1 transition-colors"
+                  title={isEditing ? 'Preview' : 'Edit'}
                 >
                   <Edit3 size={13} />
                   <span className="text-[11px]">{isEditing ? 'View' : 'Edit'}</span>
@@ -307,16 +405,22 @@ export const ContentStudioPage = () => {
             )}
           </div>
 
+          {/* Output Body */}
           <div className="flex-1">
             {loading ? (
               <div className="h-full flex flex-col items-center justify-center gap-3 py-16">
                 <RefreshCw size={28} className="animate-spin text-brand-violet" />
-                <p className="text-xs text-slate-500">
-                  Generating with AI — building fresh content for &ldquo;{formData.topic}&rdquo;
+                <p className="text-xs text-slate-500 text-center">
+                  Generating content for
+                  {formData.brandName && <strong> {formData.brandName}</strong>}
+                  {formData.topic && <> — &ldquo;{formData.topic}&rdquo;</>}
                 </p>
+                <p className="text-[10px] text-slate-400">Fresh generation, no cached results reused.</p>
               </div>
+
             ) : output ? (
               <>
+                {/* Content: edit mode or view mode */}
                 {isEditing ? (
                   <textarea
                     value={editedContent}
@@ -328,23 +432,45 @@ export const ContentStudioPage = () => {
                     {output.content}
                   </div>
                 )}
-                <div className="mt-3 text-[10px] text-slate-400 flex items-center justify-between">
+
+                {/* Generation metadata */}
+                <div className="mt-3 text-[10px] text-slate-400 flex items-center justify-between flex-wrap gap-1">
                   <span>
-                    Generated {output.generatedAt ? new Date(output.generatedAt).toLocaleTimeString() : 'just now'}
+                    Generated {output.generatedAt
+                      ? new Date(output.generatedAt).toLocaleTimeString()
+                      : 'just now'}
+                    {output.brandName && ` · Brand: ${output.brandName}`}
+                    {` · Platform: ${output.platform}`}
                   </span>
-                  {output.model && <span>Model: {output.model}</span>}
+                  {output.model && <span className="font-mono">Model: {output.model}</span>}
                 </div>
+
+                {/* Fallback note if no Gemini key */}
+                {output.note && (
+                  <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-700">
+                    ⚡ {output.note}
+                  </div>
+                )}
               </>
+
             ) : (
-              <div className="h-full flex flex-col items-center justify-center gap-3 py-16 text-slate-300">
+              /* Empty state */
+              <div className="h-full flex flex-col items-center justify-center gap-4 py-16 text-slate-300">
                 <Sparkles size={36} className="opacity-30" />
-                <p className="text-xs text-slate-400 text-center max-w-xs">
-                  Enter a topic and click Generate Content to create your first piece.
-                </p>
+                <div className="text-center space-y-1.5">
+                  <p className="text-xs text-slate-400 font-semibold">Start by entering your brand details</p>
+                  <div className="text-[11px] text-slate-400 space-y-0.5 max-w-xs mx-auto">
+                    <p>1. Enter brand name <span className="text-slate-500 font-medium">(e.g. Flipkart)</span></p>
+                    <p>2. Select industry <span className="text-slate-500 font-medium">(e.g. E-commerce)</span></p>
+                    <p>3. Enter campaign topic <span className="text-slate-500 font-medium">(e.g. Big Shopping Days Sale)</span></p>
+                    <p>4. Add keywords &amp; click <strong className="text-brand-violet">Generate Content</strong></p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </Card>
+
       </div>
     </div>
   );
