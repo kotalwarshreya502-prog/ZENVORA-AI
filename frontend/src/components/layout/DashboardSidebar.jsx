@@ -64,9 +64,12 @@ export const DashboardSidebar = ({ mobileOpen, setMobileOpen }) => {
     {
       title: 'INTELLIGENCE & SEO',
       items: [
-        { name: 'SEO Website Audit', path: '/dashboard/seo-analysis', icon: <Search size={18} /> },
+        { name: 'Research Assistant', path: '/dashboard/research', icon: <Search size={18} />, badge: 'NEW' },
+        { name: 'Competitor Analysis', path: '/dashboard/competitor', icon: <Key size={18} />, badge: 'NEW' },
+        { name: 'SEO Website Audit', path: '/dashboard/seo-analysis', icon: <Globe size={18} /> },
         { name: 'Marketing Analytics', path: '/dashboard/analytics', icon: <BarChart3 size={18} /> },
         { name: 'Brand Knowledge Base', path: '/dashboard/brand-guidelines', icon: <ShieldCheck size={18} /> },
+        { name: 'Generation History', path: '/dashboard/history', icon: <History size={18} /> },
       ],
     },
     {

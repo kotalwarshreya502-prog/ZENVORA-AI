@@ -1,6 +1,8 @@
 import GeminiService from '../services/geminiService.js';
 import Storage from '../services/storageService.js';
 import { errorResponse, successResponse } from '../utils/responseHandler.js';
+import GenerationHistory from '../models/GenerationHistory.js';
+import { generateRequestId } from '../services/aiProviderService.js';
 
 export const generateMarketingContent = async (req, res) => {
   try {

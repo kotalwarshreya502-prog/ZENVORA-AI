@@ -1,95 +1,54 @@
 /**
  * ZENVORA AI — Modular AI Provider Service
- * Abstracts text generation across providers (Gemini, fallback engine).
- * Each call gets a unique requestId — no result reuse across requests.
+ * Adapts multiple AI providers behind a unified interface.
+ * Providers: gemini (primary), fallback-engine (secondary)
  */
-import { randomUUID } from 'crypto';
+import crypto from 'crypto';
+import GeminiService from './geminiService.js';
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-const GEMINI_FALLBACK_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+// Every generation call returns a unique requestId for isolation
+export const generateRequestId = () => crypto.randomUUID();
 
-/**
- * Call Gemini API with automatic model fallback.
- * Returns { text, model, requestId, provider } or null on failure.
- */
-export async function callGeminiText(prompt, systemInstruction = '', options = {}) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const requestId = randomUUID();
+const AIProvider = {
+  // Text: marketing content, blogs, captions, hashtags
+  generateText: async (prompt, systemInstruction = '', options = {}) => {
+    const requestId = generateRequestId();
+    const startedAt = new Date().toISOString();
+    const result = await GeminiService.callGemini(prompt, systemInstruction);
+    return {
+      requestId,
+      text: result?.text || null,
+      provider: result ? 'google-gemini' : 'fallback-engine',
+      model: result?.source || 'zenvora-engine-v1',
+      startedAt,
+      completedAt: new Date().toISOString(),
+    };
+  },
 
-  if (!apiKey || apiKey.trim() === '') {
-    return null;
-  }
+  // Research: web content analysis
+  analyzeContent: async (content, task, options = {}) => {
+    const requestId = generateRequestId();
+    const prompt = `${task}\n\nContent to analyze:\n${content.slice(0, 8000)}`;
+    const result = await GeminiService.callGemini(prompt, 'You are an expert analyst. Be factual, cite sources where available, and clearly distinguish verified data from AI analysis.');
+    return {
+      requestId,
+      analysis: result?.text || null,
+      provider: result ? 'google-gemini' : 'fallback-engine',
+      model: result?.source || 'zenvora-engine-v1',
+    };
+  },
 
-  const { temperature = 0.75, maxTokens = 4096 } = options;
+  // SEO: keyword and content analysis
+  analyzeSEO: async (url, content, targetKeyword = '') => {
+    const requestId = generateRequestId();
+    const prompt = `Analyze this webpage for SEO. URL: ${url}\nTarget Keyword: ${targetKeyword || 'auto-detect'}\n\nPage content:\n${content.slice(0, 6000)}\n\nProvide: 1) Top 10 keyword opportunities with estimated search intent, 2) Content gaps, 3) Meta recommendations, 4) Internal link suggestions, 5) Semantic keywords to include`;
+    const result = await GeminiService.callGemini(prompt, 'You are an SEO expert. Focus on actionable, specific recommendations.');
+    return {
+      requestId,
+      analysis: result?.text || null,
+      model: result?.source || 'zenvora-engine-v1',
+    };
+  },
+};
 
-  const body = {
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt }],
-      },
-    ],
-    generationConfig: {
-      temperature,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: maxTokens,
-    },
-  };
-
-  for (const url of [GEMINI_URL, GEMINI_FALLBACK_URL]) {
-    try {
-      const res = await fetch(`${url}?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(25000),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          const modelName = url.includes('gemini-2.0-flash') ? 'gemini-2.0-flash' : 'gemini-1.5-flash';
-          console.log(`[AI] ${modelName} responded (requestId: ${requestId})`);
-          return { text, model: modelName, requestId, provider: 'google-gemini' };
-        }
-      } else {
-        const err = await res.json().catch(() => ({}));
-        console.warn(`[AI] Gemini ${url.includes('2.0') ? '2.0' : '1.5'} error:`, err?.error?.message || res.status);
-      }
-    } catch (err) {
-      console.warn(`[AI] Gemini request failed: ${err.message}`);
-    }
-  }
-
-  return null;
-}
-
-/**
- * Generate a real image URL using Pollinations.ai (free, no API key needed).
- * Returns a real fetchable image URL.
- */
-export async function generateImage({ prompt, width = 1024, height = 1024, model = 'flux' }) {
-  const requestId = randomUUID();
-  const encodedPrompt = encodeURIComponent(prompt);
-  const seed = Math.floor(Math.random() * 999999);
-
-  // Pollinations.ai — returns real AI-generated images, free, no key required
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed}&model=${model}&nologo=true`;
-
-  // Verify the image is reachable
-  try {
-    const check = await fetch(imageUrl, { method: 'HEAD', signal: AbortSignal.timeout(10000) });
-    if (check.ok || check.status === 200) {
-      return { imageUrl, requestId, provider: 'pollinations-flux', model, width, height };
-    }
-  } catch {
-    // fall through to direct URL return anyway — Pollinations generates on first GET
-  }
-
-  // Return URL directly — browser will load it on first access
-  return { imageUrl, requestId, provider: 'pollinations-flux', model, width, height };
-}
-
-export default { callGeminiText, generateImage };
+export default AIProvider;

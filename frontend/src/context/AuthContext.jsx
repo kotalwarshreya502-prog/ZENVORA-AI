@@ -50,13 +50,9 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('zenvora_user', JSON.stringify(res.user));
         return { success: true };
       }
-      return { success: false, message: res?.message || 'Login failed. Please try again.' };
+      return { success: false, message: res?.message || 'Login failed' };
     } catch (err) {
-      const message =
-        err?.message ||
-        err?.data?.message ||
-        (typeof err === 'string' ? err : 'Login failed. Please check your connection and try again.');
-      return { success: false, message, status: err?.status || null };
+      return { success: false, message: err?.message || 'Failed to authenticate' };
     } finally {
       setLoading(false);
     }
@@ -77,16 +73,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('zenvora_user', JSON.stringify(res.user));
         return { success: true };
       }
-      return { success: false, message: res?.message || 'Registration failed. Please try again.' };
+      return { success: false, message: res?.message || 'Registration failed' };
     } catch (err) {
-      // err is the errorDetails object from the axios interceptor:
-      // { message: string, status: number, data: object }
+      // err is shaped as { message, status, data } by the Axios response interceptor
       const message =
         err?.message ||
         err?.data?.message ||
-        (typeof err === 'string' ? err : 'Registration failed. Please check your connection and try again.');
-      const status = err?.status || null;
-      return { success: false, message, status };
+        err?.response?.data?.message ||
+        'Failed to register account';
+      return { success: false, message, status: err?.status };
     } finally {
       setLoading(false);
     }

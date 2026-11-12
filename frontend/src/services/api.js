@@ -104,6 +104,21 @@ export const api = {
   // Subscriptions & Billing
   getSubscription: () => apiClient.get('/subscriptions'),
   upgradePlan: (data) => apiClient.post('/subscriptions/upgrade', data),
+
+  // ── NEW: Research Assistant ──────────────────────────────────────────────
+  analyzeResearch: (data) => apiClient.post('/research/analyze', data),
+
+  // ── NEW: Competitor Analysis ─────────────────────────────────────────────
+  analyzeCompetitor: (data) => apiClient.post('/competitor/analyze', data),
+
+  // ── NEW: Image / Poster Generation (Pollinations.ai) ────────────────────
+  generatePosterImage: (data) => apiClient.post('/image/generate', data),
+  generateSocialGraphic: (data) => apiClient.post('/image/social', data),
+
+  // ── NEW: Generation History ──────────────────────────────────────────────
+  getHistory: (params) => apiClient.get('/history', { params }),
+  saveHistoryItem: (id, data) => apiClient.patch(`/history/${id}/save`, data),
+  deleteHistoryItem: (id) => apiClient.delete(`/history/${id}`),
 };
 
 export default apiClient;

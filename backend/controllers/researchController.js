@@ -1,366 +1,107 @@
-/**
- * ZENVORA AI — Research & Competitor Analysis Controller
- * Real web research via public data fetch + Gemini AI summarization.
- * Every generation is scoped to the authenticated user — no cross-user data.
- */
-import { randomUUID } from 'crypto';
-import GenerationHistory from '../models/GenerationHistory.js';
-import { callGeminiText } from '../services/aiProviderService.js';
+import crypto from 'crypto';
+import GeminiService from '../services/geminiService.js';
 import { errorResponse, successResponse } from '../utils/responseHandler.js';
 
-// ─── Research Assistant ─────────────────────────────────────────────────────
-export const runResearch = async (req, res) => {
+// Attempt to save to GenerationHistory (non-blocking)
+async function saveToHistory(userId, module, input, output, model) {
   try {
-    const { topic, depth = 'standard' } = req.body;
+    const { default: GenerationHistory } = await import('../models/GenerationHistory.js');
+    await GenerationHistory.create({
+      userId,
+      requestId: crypto.randomUUID(),
+      module,
+      input,
+      output,
+      provider: model?.includes('gemini') ? 'google-gemini' : 'fallback-engine',
+      model: model || 'zenvora-engine-v1',
+      status: 'success',
+    });
+  } catch (e) {
+    console.warn('[History] Save failed (non-critical):', e.message);
+  }
+}
+
+export const analyzeResearch = async (req, res) => {
+  try {
+    const { topic, question, depth = 'standard' } = req.body;
     const userId = req.user.id;
-    const requestId = randomUUID();
+    const requestId = crypto.randomUUID();
 
-    if (!topic || !topic.trim()) {
-      return errorResponse(res, 'Research topic is required', 400);
+    if (!topic && !question) {
+      return errorResponse(res, 'Please provide a topic or research question', 400);
     }
 
-    // Step 1: Try to fetch real search results using DuckDuckGo Instant Answer API (no key needed)
-    let searchSources = [];
-    try {
-      const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(topic)}&format=json&no_html=1&skip_disambig=1`;
-      const ddgRes = await fetch(ddgUrl, {
-        headers: { 'User-Agent': 'ZENVORA-Research-Bot/1.0' },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (ddgRes.ok) {
-        const ddgData = await ddgRes.json();
-        if (ddgData.RelatedTopics?.length > 0) {
-          searchSources = ddgData.RelatedTopics.slice(0, 6).map((t) => ({
-            title: t.Text?.split(' - ')[0] || t.Text?.slice(0, 60) || 'Related Topic',
-            snippet: t.Text || '',
-            url: t.FirstURL || '',
-            source: 'DuckDuckGo Research',
-          })).filter((s) => s.url);
+    const researchQuery = question || topic;
+
+    // Step 1: Fetch real web content from public search-friendly sources
+    const sources = [];
+    const urlsToFetch = [
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(researchQuery.split(' ').slice(0, 3).join('_'))}`,
+    ];
+
+    for (const url of urlsToFetch) {
+      try {
+        const r = await fetch(url, {
+          headers: { 'User-Agent': 'ZenvoraResearchBot/1.0' },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          if (data.extract || data.description) {
+            sources.push({
+              title: data.title || researchQuery,
+              url: data.content_urls?.desktop?.page || url,
+              excerpt: (data.extract || data.description || '').slice(0, 800),
+              type: 'wikipedia',
+              fetchedAt: new Date().toISOString(),
+            });
+          }
         }
-        if (ddgData.AbstractText) {
-          searchSources.unshift({
-            title: ddgData.Heading || topic,
-            snippet: ddgData.AbstractText,
-            url: ddgData.AbstractURL || '',
-            source: ddgData.AbstractSource || 'DuckDuckGo',
-          });
-        }
-      }
-    } catch (fetchErr) {
-      console.warn('[Research] DuckDuckGo fetch failed:', fetchErr.message);
+      } catch { /* Skip failed fetches */ }
     }
 
-    // Step 2: AI-powered analysis and synthesis
-    const contextText = searchSources.length > 0
-      ? `Available research data:\n${searchSources.map((s, i) => `[${i + 1}] ${s.title}: ${s.snippet}`).join('\n\n')}`
-      : `No live search data retrieved. Generate a thorough research analysis based on your training knowledge.`;
+    // Step 2: AI analysis using Gemini
+    const sourceContext = sources.length > 0
+      ? `Available sources:\n${sources.map(s => `[${s.title}]: ${s.excerpt}`).join('\n\n')}`
+      : `No live sources fetched. Provide analysis based on general knowledge.`;
 
-    const systemPrompt = `You are ZENVORA AI Research Director. Provide thorough, accurate research reports.
-Clearly distinguish: verified facts, general knowledge, and analysis.
-Never fabricate URLs, statistics, or citations you cannot verify.`;
+    const systemInstruction = `You are ZENVORA AI Research Assistant. Analyze the provided topic using the source data where available.
+IMPORTANT RULES:
+1. Clearly distinguish: "According to [source]:" vs "Based on AI analysis:"
+2. Never fabricate statistics, URLs, or citations
+3. If sources are limited, say so explicitly
+4. Structure output with: Summary, Key Findings, Market Insights, Limitations`;
 
-    const researchPrompt = `Conduct a comprehensive research analysis on: "${topic}"
+    const prompt = `Research Topic: "${researchQuery}"\n\n${sourceContext}\n\nProvide a comprehensive research summary with clear source attribution.`;
 
-${contextText}
-
-Provide a detailed research report covering:
-1. Executive Summary (2-3 sentences)
-2. Key Findings (5-7 bullet points with the most important facts)
-3. Current Trends & Developments
-4. Strategic Implications for Marketers
-5. Data & Statistics (cite only what you can confirm, label estimates clearly)
-6. Recommended Next Steps
-
-Format as structured markdown. Label AI-generated analysis clearly vs verified data.
-Research depth: ${depth}`;
-
-    const aiResult = await callGeminiText(researchPrompt, systemPrompt, { temperature: 0.6, maxTokens: 3000 });
-
-    const isLiveAI = Boolean(aiResult);
-    const reportContent = aiResult?.text || generateFallbackResearch(topic, searchSources);
-    const model = aiResult?.model || 'zenvora-engine-v1';
+    const aiResult = await GeminiService.callGemini(prompt, systemInstruction);
 
     const output = {
       requestId,
-      topic,
-      report: reportContent,
-      sources: searchSources,
-      model,
-      provider: aiResult?.provider || 'zenvora-engine-v1',
-      isLiveAI,
-      hasLiveSources: searchSources.length > 0,
-      retrievedAt: new Date().toISOString(),
-      disclaimer: isLiveAI
-        ? 'AI analysis generated by Google Gemini. Verify critical facts from primary sources.'
-        : 'Generated by ZENVORA contextual engine. Add GEMINI_API_KEY for live AI analysis.',
+      topic: researchQuery,
+      summary: aiResult?.text || `Research on "${researchQuery}": AI analysis unavailable. Please configure GEMINI_API_KEY in Render environment variables.`,
+      sources: sources.map(s => ({
+        title: s.title,
+        url: s.url,
+        excerpt: s.excerpt,
+        fetchedAt: s.fetchedAt,
+        isLiveSource: true,
+      })),
+      model: aiResult?.source || 'zenvora-engine-v1',
+      provider: aiResult ? 'google-gemini' : 'fallback-engine',
+      isAIGenerated: true,
+      dataNote: sources.length > 0
+        ? `Analysis based on ${sources.length} live source(s) + AI knowledge.`
+        : 'No live sources retrieved. Add SERPER_API_KEY to Render env for Google Search integration.',
+      researchedAt: new Date().toISOString(),
     };
 
-    // Save to generation history (user-scoped)
-    try {
-      await GenerationHistory.create({
-        requestId,
-        userId,
-        module: 'research',
-        input: { topic, depth },
-        output,
-        provider: output.provider,
-        model,
-        status: 'success',
-        title: `Research: ${topic.slice(0, 50)}`,
-      });
-    } catch (histErr) {
-      console.warn('[Research] History save failed:', histErr.message);
-    }
+    // Save to history (non-blocking)
+    saveToHistory(userId, 'research', { topic: researchQuery, depth }, output, output.model);
 
     return successResponse(res, 'Research completed', output);
   } catch (err) {
     console.error('[Research] Error:', err.message);
-    return errorResponse(res, 'Research failed. Please try again.', 500, err.message);
+    return errorResponse(res, 'Research analysis failed. Please try again.', 500, err.message);
   }
 };
-
-// ─── Competitor Analysis ─────────────────────────────────────────────────────
-export const analyzeCompetitor = async (req, res) => {
-  try {
-    const { url, aspects = [] } = req.body;
-    const userId = req.user.id;
-    const requestId = randomUUID();
-
-    if (!url || !url.trim()) {
-      return errorResponse(res, 'Competitor website URL is required', 400);
-    }
-
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(url.startsWith('http') ? url : `https://${url}`);
-    } catch {
-      return errorResponse(res, 'Invalid URL format', 400);
-    }
-
-    const domain = parsedUrl.hostname.replace('www.', '');
-
-    // Step 1: Try to fetch public homepage for real data
-    let publicData = { title: '', metaDescription: '', h1s: [], body: '', fetched: false };
-    try {
-      const pageRes = await fetch(parsedUrl.href, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; ZENVORA-Competitive-Intelligence/1.0)',
-          Accept: 'text/html',
-        },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (pageRes.ok) {
-        const html = await pageRes.text();
-        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-        publicData.title = titleMatch?.[1]?.trim() || '';
-        const metaMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)/i);
-        publicData.metaDescription = metaMatch?.[1]?.trim() || '';
-        publicData.h1s = [...html.matchAll(/<h1[^>]*>([^<]+)<\/h1>/gi)].map((m) => m[1].trim()).slice(0, 5);
-        // Extract visible text content (stripped of HTML)
-        publicData.body = html
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .slice(0, 3000);
-        publicData.fetched = true;
-      }
-    } catch (fetchErr) {
-      console.warn('[Competitor] Page fetch failed:', fetchErr.message);
-    }
-
-    // Step 2: AI-powered competitive intelligence
-    const pageContext = publicData.fetched
-      ? `LIVE page data from ${domain}:
-Title: ${publicData.title}
-Meta: ${publicData.metaDescription}
-H1s: ${publicData.h1s.join(' | ')}
-Content sample: ${publicData.body.slice(0, 1500)}`
-      : `Could not fetch live page. Analyze based on domain: ${domain}`;
-
-    const systemPrompt = `You are ZENVORA AI Competitive Intelligence Director.
-Analyze only publicly available information. Never fabricate data.
-Clearly label what is confirmed from the page vs inferred from domain/industry context.`;
-
-    const analysisPrompt = `Provide a comprehensive competitive intelligence report for: ${parsedUrl.href}
-
-${pageContext}
-
-Analyze and report on:
-1. **Company Overview** — What do they do? Who is their target market?
-2. **Products & Services** — Key offerings identified from public content
-3. **Brand Positioning** — Messaging strategy, tone, unique value proposition
-4. **SEO & Content Strategy** — Keywords visible, content approach, blog/resources presence
-5. **Social Media Presence** — Social links found, estimated engagement approach
-6. **Marketing Strategy** — Campaigns, promotions, CTAs observed
-7. **Identified Strengths** — What they do well
-8. **Market Opportunities** — Gaps you could exploit competitively
-9. **Limitations of This Analysis** — What data was inaccessible
-
-Format as structured markdown. Label all inferences clearly. Source URL: ${parsedUrl.href}
-Analysis date: ${new Date().toISOString().split('T')[0]}`;
-
-    const aiResult = await callGeminiText(analysisPrompt, systemPrompt, { temperature: 0.5, maxTokens: 3500 });
-    const isLiveAI = Boolean(aiResult);
-    const report = aiResult?.text || generateFallbackCompetitor(domain, publicData);
-
-    const output = {
-      requestId,
-      url: parsedUrl.href,
-      domain,
-      report,
-      publicData: {
-        title: publicData.title,
-        metaDescription: publicData.metaDescription,
-        h1s: publicData.h1s,
-        fetched: publicData.fetched,
-      },
-      model: aiResult?.model || 'zenvora-engine-v1',
-      provider: aiResult?.provider || 'zenvora-engine-v1',
-      isLiveAI,
-      liveFetch: publicData.fetched,
-      analyzedAt: new Date().toISOString(),
-      disclaimer: 'Analysis based on publicly accessible information only. No private or proprietary data was accessed.',
-    };
-
-    // Save to history (user-scoped)
-    try {
-      await GenerationHistory.create({
-        requestId,
-        userId,
-        module: 'competitor-analysis',
-        input: { url: parsedUrl.href, aspects },
-        output,
-        provider: output.provider,
-        model: output.model,
-        status: 'success',
-        title: `Competitor: ${domain}`,
-      });
-    } catch (histErr) {
-      console.warn('[Competitor] History save failed:', histErr.message);
-    }
-
-    return successResponse(res, 'Competitor analysis completed', output);
-  } catch (err) {
-    console.error('[Competitor] Error:', err.message);
-    return errorResponse(res, 'Competitor analysis failed. Please try again.', 500, err.message);
-  }
-};
-
-// ─── Generation History ───────────────────────────────────────────────────────
-export const getGenerationHistory = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { module, limit = 20, page = 1 } = req.query;
-    const filter = { userId };
-    if (module) filter.module = module;
-
-    const history = await GenerationHistory.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit))
-      .select('-output.report -output.report') // exclude large fields
-      .lean();
-
-    const total = await GenerationHistory.countDocuments(filter);
-
-    return successResponse(res, 'History fetched', { history, total, page: Number(page), limit: Number(limit) });
-  } catch (err) {
-    return errorResponse(res, 'Failed to fetch history', 500, err.message);
-  }
-};
-
-export const getGenerationById = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { id } = req.params;
-    const record = await GenerationHistory.findOne({ _id: id, userId });
-    if (!record) return errorResponse(res, 'Generation not found', 404);
-    return successResponse(res, 'Generation fetched', { generation: record });
-  } catch (err) {
-    return errorResponse(res, 'Failed to fetch generation', 500, err.message);
-  }
-};
-
-export const deleteGeneration = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { id } = req.params;
-    await GenerationHistory.deleteOne({ _id: id, userId });
-    return successResponse(res, 'Generation deleted');
-  } catch (err) {
-    return errorResponse(res, 'Failed to delete generation', 500, err.message);
-  }
-};
-
-// ─── Fallback Generators ──────────────────────────────────────────────────────
-function generateFallbackResearch(topic, sources) {
-  const hasLive = sources.length > 0;
-  return `## Research Report: ${topic}
-
-> ⚠️ **Note:** This is a contextual analysis. Add \`GEMINI_API_KEY\` to Render environment for live AI-powered research.
-
-### Executive Summary
-${topic} represents a significant area of focus for modern marketers and business leaders. Understanding the current landscape requires examining market dynamics, emerging trends, and strategic implications.
-
-### Key Findings
-${hasLive && sources[0] ? `- **${sources[0].title}:** ${sources[0].snippet?.slice(0, 150) || 'Relevant data point from search results.'}` : ''}
-- Market adoption of AI-driven tools has accelerated significantly in 2025-2026
-- Consumer behavior shifts are reshaping content strategy requirements
-- Competitive differentiation increasingly relies on data-driven personalization
-- Regulatory developments are creating new compliance requirements
-- Integration capabilities determine platform longevity and ROI
-
-### Current Trends
-1. AI-first content workflows replacing manual production cycles
-2. First-party data strategies gaining priority as cookie deprecation advances
-3. Short-form video dominating organic reach across all major platforms
-4. Brand authenticity metrics weighing more heavily in algorithmic distribution
-
-### Strategic Implications for Marketers
-- Invest in owned channels and community building over paid acquisition
-- Prioritize brand voice consistency across all AI-generated touchpoints
-- Build topical authority clusters rather than isolated keyword pages
-- Measure brand sentiment alongside traditional conversion metrics
-
-### Recommended Next Steps
-1. Conduct a full audit of your current content and channel performance
-2. Identify your highest-ROI organic channels and double down
-3. Build a systematic content repurposing workflow
-4. Set up quarterly competitive monitoring cadence
-
----
-*Analysis date: ${new Date().toISOString().split('T')[0]} | Sources: ${hasLive ? sources.length + ' live sources retrieved' : 'Contextual knowledge base'}*`;
-}
-
-function generateFallbackCompetitor(domain, publicData) {
-  return `## Competitive Intelligence Report: ${domain}
-
-> ⚠️ **Note:** Add \`GEMINI_API_KEY\` to Render environment for AI-powered competitive analysis.
-
-${publicData.fetched ? `### Live Page Data Retrieved ✅
-- **Title:** ${publicData.title || 'Not found'}
-- **Meta Description:** ${publicData.metaDescription || 'Not found'}
-- **H1 Tags:** ${publicData.h1s.join(', ') || 'Not found'}` : `### Page Access: Limited
-Could not retrieve live page data. Analysis based on domain information only.`}
-
-### Identified Strengths
-- Established domain presence and brand recognition
-- Existing customer base and market trust
-- Likely invested infrastructure and tooling
-
-### Market Opportunities
-- Target audience segments they may be underserving
-- Content gaps in their SEO strategy
-- Feature areas where differentiation is possible
-
-### Limitations of This Analysis
-- No access to private analytics or backend systems
-- Social media data not retrieved in this analysis
-- Pricing and conversion data not available from public sources
-- For full competitive intelligence, consider tools like Semrush, Ahrefs, or SimilarWeb
-
----
-*Analysis date: ${new Date().toISOString().split('T')[0]} | Source: ${domain} (publicly accessible content only)*`;
-}

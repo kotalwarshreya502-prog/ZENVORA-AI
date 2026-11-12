@@ -8,13 +8,15 @@ import businessRoutes from './businessRoutes.js';
 import calendarRoutes from './calendarRoutes.js';
 import campaignRoutes from './campaignRoutes.js';
 import healthRoutes from './healthRoutes.js';
-import imageRoutes from './imageRoutes.js';
 import integrationRoutes from './integrationRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import postRoutes from './postRoutes.js';
-import researchRoutes from './researchRoutes.js';
 import seoRoutes from './seoRoutes.js';
 import subscriptionRoutes from './subscriptionRoutes.js';
+import historyRoutes from './historyRoutes.js';
+import researchRoutes from './researchRoutes.js';
+import competitorRoutes from './competitorRoutes.js';
+import imageRoutes from './imageRoutes.js';
 
 const router = express.Router();
 
@@ -60,10 +62,16 @@ router.use('/notifications', notificationRoutes);
 // Subscriptions & Billing
 router.use('/subscriptions', subscriptionRoutes);
 
-// Research Assistant & Competitor Analysis
-router.use('/intel', researchRoutes);
+// Generation History
+router.use('/history', historyRoutes);
 
-// Real Image Generation
-router.use('/images', imageRoutes);
+// Research & Analysis
+router.use('/research', researchRoutes);
+
+// Competitor Analysis
+router.use('/competitor', competitorRoutes);
+
+// Image Generation
+router.use('/image', imageRoutes);
 
 export default router;

@@ -1,126 +1,65 @@
-/**
- * ZENVORA AI — Real Image Generation Controller
- * Uses Pollinations.ai (free, no API key) for real AI image generation.
- * Every generation gets a unique requestId and is user-scoped.
- */
-import { randomUUID } from 'crypto';
-import GenerationHistory from '../models/GenerationHistory.js';
-import { generateImage } from '../services/aiProviderService.js';
+import crypto from 'crypto';
 import { errorResponse, successResponse } from '../utils/responseHandler.js';
 
-const DIMENSION_MAP = {
-  '1:1': { width: 1024, height: 1024, label: 'Square (1:1)' },
-  '16:9': { width: 1344, height: 768, label: 'Wide (16:9)' },
-  '4:5': { width: 896, height: 1120, label: 'Portrait (4:5)' },
-  '9:16': { width: 768, height: 1344, label: 'Story (9:16)' },
-  '3:2': { width: 1216, height: 832, label: 'Landscape (3:2)' },
-};
-
-const STYLE_MODIFIERS = {
-  'Modern Tech 3D': 'modern tech 3D render, ultra realistic, 8K, professional lighting, clean minimalist design',
-  'Clean Corporate': 'clean corporate design, professional, minimal, white background, studio lighting',
-  'Cyber Tech': 'cyberpunk tech aesthetic, neon lights, dark background, futuristic digital art',
-  'Lifestyle Brand': 'lifestyle photography style, warm tones, natural lighting, authentic, editorial quality',
-  'Bold Graphic': 'bold graphic design, strong typography, high contrast, vibrant colors, poster art',
-};
-
-export const generateMarketingImage = async (req, res) => {
+async function saveToHistory(userId, input, output) {
   try {
-    const {
-      prompt,
-      aspectRatio = '1:1',
-      stylePreset = 'Modern Tech 3D',
-      brandName = '',
-      campaignTitle = '',
-      colorGrading = '',
-    } = req.body;
-    const userId = req.user.id;
-    const requestId = randomUUID();
+    const { default: GenerationHistory } = await import('../models/GenerationHistory.js');
+    await GenerationHistory.create({
+      userId, requestId: crypto.randomUUID(), module: 'image-generation',
+      input, output, provider: 'pollinations-ai', model: 'pollinations-flux', status: 'success',
+    });
+  } catch (e) { console.warn('[History] Image save failed:', e.message); }
+}
 
-    if (!prompt || !prompt.trim()) {
-      return errorResponse(res, 'Visual concept prompt is required', 400);
+export const generateImage = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      campaignTitle = '',
+      brandName = '',
+      productService = '',
+      targetAudience = '',
+      offer = '',
+      keywords = '',
+      width = 1024,
+      height = 1024,
+      style = 'modern professional',
+    } = req.body;
+
+    if (!campaignTitle && !productService) {
+      return errorResponse(res, 'Please provide a campaign title or product/service description', 400);
     }
 
-    const dimensions = DIMENSION_MAP[aspectRatio] || DIMENSION_MAP['1:1'];
-    const styleModifier = STYLE_MODIFIERS[stylePreset] || STYLE_MODIFIERS['Modern Tech 3D'];
-    const colorHint = colorGrading ? `, ${colorGrading} color palette` : '';
-    const brandHint = brandName ? `, for brand: ${brandName}` : '';
-
-    // Build enhanced prompt
-    const enhancedPrompt = `${prompt}, ${styleModifier}${colorHint}${brandHint}, marketing visual, high quality, professional`;
-
-    console.log(`[Image] Generating: "${enhancedPrompt.slice(0, 80)}..." (requestId: ${requestId})`);
-
-    const result = await generateImage({
-      prompt: enhancedPrompt,
-      width: dimensions.width,
-      height: dimensions.height,
-      model: 'flux',
+    const { default: ImageService } = await import('../services/imageService.js');
+    const result = await ImageService.generateImage({
+      campaignTitle, brandName, productService, offer: offer || keywords,
+      style, width: Math.min(Number(width), 1920), height: Math.min(Number(height), 1920),
     });
 
-    const output = {
-      requestId,
-      imageUrl: result.imageUrl,
-      prompt: enhancedPrompt,
-      originalPrompt: prompt,
-      aspectRatio,
-      dimensions,
-      stylePreset,
-      brandName,
-      campaignTitle,
-      provider: result.provider,
-      model: result.model,
-      generatedAt: new Date().toISOString(),
-      title: campaignTitle || prompt.slice(0, 40),
-    };
+    const output = { ...result, campaignTitle, brandName, productService, targetAudience };
 
-    // Persist to history (user-scoped)
-    try {
-      await GenerationHistory.create({
-        requestId,
-        userId,
-        module: 'image-generation',
-        input: { prompt, aspectRatio, stylePreset, brandName, campaignTitle },
-        output,
-        provider: result.provider,
-        model: result.model,
-        status: 'success',
-        title: output.title,
-      });
-    } catch (histErr) {
-      console.warn('[Image] History save failed:', histErr.message);
-    }
+    // Save to history
+    saveToHistory(userId, { campaignTitle, brandName, productService, style, width, height }, output);
 
-    return successResponse(res, 'Image generated successfully', output, 201);
+    return successResponse(res, 'Image generated successfully', output);
   } catch (err) {
     console.error('[Image] Generation error:', err.message);
     return errorResponse(res, 'Image generation failed. Please try again.', 500, err.message);
   }
 };
 
-export const getImageHistory = async (req, res) => {
+export const generateSocialGraphic = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { limit = 20 } = req.query;
+    const { topic, platform = 'Instagram', style = 'modern' } = req.body;
+    if (!topic) return errorResponse(res, 'Topic is required', 400);
 
-    const images = await GenerationHistory.find({ userId, module: 'image-generation' })
-      .sort({ createdAt: -1 })
-      .limit(Number(limit))
-      .lean();
+    const { default: ImageService } = await import('../services/imageService.js');
+    const result = await ImageService.generateSocialGraphic({ topic, platform, style });
 
-    return successResponse(res, 'Image history fetched', {
-      images: images.map((img) => ({
-        id: img._id,
-        requestId: img.requestId,
-        title: img.title,
-        imageUrl: img.output?.imageUrl,
-        aspectRatio: img.output?.aspectRatio,
-        stylePreset: img.output?.stylePreset,
-        prompt: img.output?.originalPrompt,
-        generatedAt: img.createdAt,
-      })),
-    });
+    saveToHistory(userId, { topic, platform, style }, result);
+    return successResponse(res, 'Social graphic generated', result);
   } catch (err) {
-    return errorResponse(res, 'Failed to fetch image history', 500, err.message);
+    return errorResponse(res, 'Graphic generation failed', 500, err.message);
   }
 };
