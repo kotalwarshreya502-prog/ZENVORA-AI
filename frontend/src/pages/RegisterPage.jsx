@@ -19,18 +19,20 @@ export const RegisterPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [alreadyExists, setAlreadyExists] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setAlreadyExists(false);
 
     // Client-side validation — must match backend & Mongoose schema
     if (formData.name.trim().length < 2) {
-      setError('Please enter your full name.');
+      setError('Please enter your full name (at least 2 characters).');
       return;
     }
     if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError('Password must be at least 8 characters. Please choose a stronger password.');
       return;
     }
     if (!formData.businessName.trim()) {
@@ -44,7 +46,13 @@ export const RegisterPage = () => {
     if (res.success) {
       navigate('/dashboard');
     } else {
-      setError(res.message || 'Registration failed. Please try again.');
+      // Surface the exact backend error message
+      const msg = res.message || 'Registration failed. Please try again.';
+      setError(msg);
+      // If email already registered, prompt to login instead
+      if (res.status === 409 || msg.toLowerCase().includes('already exists') || msg.toLowerCase().includes('already registered')) {
+        setAlreadyExists(true);
+      }
     }
   };
 
@@ -61,9 +69,18 @@ export const RegisterPage = () => {
 
         <Card className="p-8 space-y-6 shadow-xl border-slate-200/80">
           {error && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle size={16} className="shrink-0" />
-              <span>{error}</span>
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <div>
+                <span>{error}</span>
+                {alreadyExists && (
+                  <div className="mt-1.5">
+                    <Link to="/login" className="font-bold text-brand-violet hover:underline">
+                      Sign in to your existing account →
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
