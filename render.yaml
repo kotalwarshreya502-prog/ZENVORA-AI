@@ -12,6 +12,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
@@ -20,9 +22,8 @@ services:
         value: https://zenvora-ai-frontend.onrender.com
 
   # ZENVORA AI Frontend
-  - type: web
+  - type: static
     name: zenvora-ai-frontend
-    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist

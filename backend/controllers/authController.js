@@ -11,8 +11,8 @@ export const register = async (req, res) => {
     if (!name || !email || !password) {
       return errorResponse(res, 'Please provide name, email and password', 400);
     }
-    if (password.length < 6) {
-      return errorResponse(res, 'Password must be at least 6 characters', 400);
+    if (password.length < 8) {
+      return errorResponse(res, 'Password must be at least 8 characters', 400);
     }
 
     const existing = await Storage.findUserByEmail(email);
@@ -50,6 +50,14 @@ export const register = async (req, res) => {
     );
   } catch (err) {
     console.error('[Auth] register error:', err.message);
+    // Surface Mongoose validation errors to the client with a readable message
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map((e) => e.message).join('. ');
+      return errorResponse(res, messages, 400);
+    }
+    if (err.code === 11000) {
+      return errorResponse(res, 'An account with this email already exists', 409);
+    }
     return errorResponse(res, 'Registration failed. Please try again.', 500, err.message);
   }
 };

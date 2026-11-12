@@ -23,13 +23,28 @@ export const RegisterPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    // Client-side validation — must match backend & Mongoose schema
+    if (formData.name.trim().length < 2) {
+      setError('Please enter your full name.');
+      return;
+    }
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (!formData.businessName.trim()) {
+      setError('Company name is required.');
+      return;
+    }
+
     setLoading(true);
     const res = await register(formData);
     setLoading(false);
     if (res.success) {
       navigate('/dashboard');
     } else {
-      setError(res.message);
+      setError(res.message || 'Registration failed. Please try again.');
     }
   };
 
@@ -89,13 +104,15 @@ export const RegisterPage = () => {
                 <input
                   type="password"
                   required
-                  placeholder="Min 6 characters"
+                  minLength={8}
+                  placeholder="Min 8 characters"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet"
                 />
                 <Lock size={15} className="absolute left-3 top-3 text-slate-400" />
               </div>
+              <p className="text-[10px] text-slate-400 pl-1">Must be at least 8 characters</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
