@@ -8,7 +8,7 @@ const baseURL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' :
 
 const apiClient = axios.create({
   baseURL,
-  timeout: 15000,
+  timeout: 60000, // 60s — AI generation can be slow
   headers: {
     'Content-Type': 'application/json',
   },
@@ -26,99 +26,115 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Flatten payload & handle error
+// Response Interceptor: Flatten payload & handle errors
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     const errorDetails = {
       message: error.response?.data?.message || error.message || 'An unexpected error occurred',
-      status: error.response?.status || null,
-      data: error.response?.data || null,
+      status:  error.response?.status || null,
+      data:    error.response?.data || null,
     };
     return Promise.reject(errorDetails);
   }
 );
 
 export const api = {
-  // System Health
+  // ── System Health ────────────────────────────────────────────────────────
   getHealth: () => apiClient.get('/health'),
 
-  // Authentication
-  login: (credentials) => apiClient.post('/auth/login', credentials),
-  register: (userData) => apiClient.post('/auth/register', userData),
-  forgotPassword: (data) => apiClient.post('/auth/forgot-password', data),
-  getMe: () => apiClient.get('/auth/me'),
-  logout: () => apiClient.post('/auth/logout'),
+  // ── Authentication ───────────────────────────────────────────────────────
+  login:          (credentials) => apiClient.post('/auth/login', credentials),
+  register:       (userData)    => apiClient.post('/auth/register', userData),
+  forgotPassword: (data)        => apiClient.post('/auth/forgot-password', data),
+  getMe:          ()            => apiClient.get('/auth/me'),
+  logout:         ()            => apiClient.post('/auth/logout'),
 
-  // AI Content Engine
-  generateContent: (data) => apiClient.post('/ai/generate', data),
-  generateBlog: (data) => apiClient.post('/ai/blog', data),
-  generateCaptions: (data) => apiClient.post('/ai/captions', data),
-  generateHashtags: (data) => apiClient.post('/ai/hashtags', data),
+  // ── AI Content Engine — Core ─────────────────────────────────────────────
+  // POST /api/ai/generate (Content Studio + Social Post Creator)
+  generateContent:        (data) => apiClient.post('/ai/generate', data),
 
-  // Marketing Campaigns
-  getCampaigns: () => apiClient.get('/campaigns'),
-  createCampaign: (data) => apiClient.post('/campaigns', data),
-  updateCampaign: (id, data) => apiClient.put(`/campaigns/${id}`, data),
-  deleteCampaign: (id) => apiClient.delete(`/campaigns/${id}`),
+  // ── AI Generators — Dedicated Endpoints ─────────────────────────────────
+  generateSocialPost:         (data) => apiClient.post('/ai/social-post', data),
+  generateCaptions:           (data) => apiClient.post('/ai/captions', data),
+  generateHashtags:           (data) => apiClient.post('/ai/hashtags', data),
+  generateBlog:               (data) => apiClient.post('/ai/blog', data),
+  generateAdCreative:         (data) => apiClient.post('/ai/ad-creative', data),
+  generateCampaignStrategy:   (data) => apiClient.post('/ai/campaign', data),
+  generateEmail:              (data) => apiClient.post('/ai/email', data),
+  generateContentCalendar:    (data) => apiClient.post('/ai/content-calendar', data),
+  improveContent:             (data) => apiClient.post('/ai/improve', data),
+  generateBrandVoice:         (data) => apiClient.post('/ai/brand-voice', data),
+  generateProductDescription: (data) => apiClient.post('/ai/product-description', data),
 
-  // Posts & Captions
-  getPosts: (params) => apiClient.get('/posts', { params }),
-  createPost: (data) => apiClient.post('/posts', data),
-  updatePost: (id, data) => apiClient.put(`/posts/${id}`, data),
-  deletePost: (id) => apiClient.delete(`/posts/${id}`),
+  // ── Marketing Campaigns ──────────────────────────────────────────────────
+  getCampaigns:    ()           => apiClient.get('/campaigns'),
+  createCampaign:  (data)       => apiClient.post('/campaigns', data),
+  updateCampaign:  (id, data)   => apiClient.put(`/campaigns/${id}`, data),
+  deleteCampaign:  (id)         => apiClient.delete(`/campaigns/${id}`),
 
-  // Blogs
-  getBlogs: () => apiClient.get('/blogs'),
-  getBlogById: (id) => apiClient.get(`/blogs/${id}`),
-  createBlog: (data) => apiClient.post('/blogs', data),
-  updateBlog: (id, data) => apiClient.put(`/blogs/${id}`, data),
-  deleteBlog: (id) => apiClient.delete(`/blogs/${id}`),
+  // ── Posts & Captions ────────────────────────────────────────────────────
+  getPosts:    (params) => apiClient.get('/posts', { params }),
+  createPost:  (data)   => apiClient.post('/posts', data),
+  updatePost:  (id, data) => apiClient.put(`/posts/${id}`, data),
+  deletePost:  (id)     => apiClient.delete(`/posts/${id}`),
 
-  // Brand Knowledge Base
-  getBrandGuidelines: () => apiClient.get('/brand'),
+  // ── Blogs ────────────────────────────────────────────────────────────────
+  getBlogs:    ()         => apiClient.get('/blogs'),
+  getBlogById: (id)       => apiClient.get(`/blogs/${id}`),
+  createBlog:  (data)     => apiClient.post('/blogs', data),
+  updateBlog:  (id, data) => apiClient.put(`/blogs/${id}`, data),
+  deleteBlog:  (id)       => apiClient.delete(`/blogs/${id}`),
+
+  // ── Brand Knowledge Base ─────────────────────────────────────────────────
+  getBrandGuidelines:    ()     => apiClient.get('/brand'),
   updateBrandGuidelines: (data) => apiClient.put('/brand', data),
 
-  // SEO Audit & Heuristics
+  // ── SEO Audit & Heuristics ───────────────────────────────────────────────
   analyzeSeo: (data) => apiClient.post('/seo/analyze', data),
 
-  // Marketing Analytics
+  // ── Marketing Analytics ──────────────────────────────────────────────────
   getAnalytics: () => apiClient.get('/analytics'),
 
-  // Calendar
-  getCalendarEvents: () => apiClient.get('/calendar'),
-  scheduleCalendarEvent: (data) => apiClient.post('/calendar/schedule', data),
+  // ── Calendar ─────────────────────────────────────────────────────────────
+  getCalendarEvents:    ()     => apiClient.get('/calendar'),
+  scheduleCalendarEvent:(data) => apiClient.post('/calendar/schedule', data),
 
-  // Business Profile
-  getBusinessProfile: () => apiClient.get('/business'),
+  // ── Business Profile ─────────────────────────────────────────────────────
+  getBusinessProfile:    ()     => apiClient.get('/business'),
   updateBusinessProfile: (data) => apiClient.put('/business', data),
 
-  // Social Integrations
-  getIntegrations: () => apiClient.get('/integrations'),
-  toggleIntegration: (id, action) => apiClient.post(`/integrations/${id}/toggle`, { action }),
+  // ── Social Integrations ───────────────────────────────────────────────────
+  getIntegrations:   ()            => apiClient.get('/integrations'),
+  toggleIntegration: (id, action)  => apiClient.post(`/integrations/${id}/toggle`, { action }),
 
-  // Notifications
-  getNotifications: () => apiClient.get('/notifications'),
-  markNotificationsRead: () => apiClient.post('/notifications/mark-read'),
+  // ── Notifications ─────────────────────────────────────────────────────────
+  getNotifications:      ()   => apiClient.get('/notifications'),
+  markNotificationsRead: ()   => apiClient.post('/notifications/mark-read'),
 
-  // Subscriptions & Billing
-  getSubscription: () => apiClient.get('/subscriptions'),
-  upgradePlan: (data) => apiClient.post('/subscriptions/upgrade', data),
+  // ── Subscriptions & Billing ──────────────────────────────────────────────
+  getSubscription: ()     => apiClient.get('/subscriptions'),
+  upgradePlan:     (data) => apiClient.post('/subscriptions/upgrade', data),
 
-  // ── NEW: Research Assistant ──────────────────────────────────────────────
+  // ── Research Assistant ───────────────────────────────────────────────────
   analyzeResearch: (data) => apiClient.post('/research/analyze', data),
 
-  // ── NEW: Competitor Analysis ─────────────────────────────────────────────
+  // ── Competitor Analysis ──────────────────────────────────────────────────
   analyzeCompetitor: (data) => apiClient.post('/competitor/analyze', data),
 
-  // ── NEW: Image / Poster Generation (Pollinations.ai) ────────────────────
-  generatePosterImage: (data) => apiClient.post('/image/generate', data),
+  // ── Image / Poster Generation (Pollinations.ai) ──────────────────────────
+  generatePosterImage:   (data) => apiClient.post('/image/generate', data),
   generateSocialGraphic: (data) => apiClient.post('/image/social', data),
 
-  // ── NEW: Generation History ──────────────────────────────────────────────
-  getHistory: (params) => apiClient.get('/history', { params }),
-  saveHistoryItem: (id, data) => apiClient.patch(`/history/${id}/save`, data),
-  deleteHistoryItem: (id) => apiClient.delete(`/history/${id}`),
+  // ── Intelligent Poster Engine (Universal — any brand/topic/industry) ──────
+  analyzePosterInput:    (data) => apiClient.post('/poster/analyze', data),
+  generateIntelligentPoster: (data) => apiClient.post('/poster/generate', data),
+  getPosterHistory:      ()     => apiClient.get('/poster/history'),
+
+  // ── Generation History ───────────────────────────────────────────────────
+  getHistory:        (params)   => apiClient.get('/history', { params }),
+  saveHistoryItem:   (id, data) => apiClient.patch(`/history/${id}/save`, data),
+  deleteHistoryItem: (id)       => apiClient.delete(`/history/${id}`),
 };
 
 export default apiClient;

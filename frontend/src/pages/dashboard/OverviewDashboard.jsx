@@ -44,18 +44,21 @@ export const OverviewDashboard = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [healthStatus, setHealthStatus] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [anRes, campRes, postRes] = await Promise.all([
+        const [anRes, campRes, postRes, healthRes] = await Promise.all([
           api.getAnalytics(),
           api.getCampaigns(),
           api.getPosts(),
+          api.getHealth().catch(() => null),
         ]);
         setAnalytics(anRes);
         setCampaigns(campRes?.campaigns || []);
         setPosts(postRes?.posts || []);
+        setHealthStatus(healthRes);
       } catch (err) {
         console.warn('Dashboard fetch fallback:', err.message);
       } finally {
@@ -125,6 +128,31 @@ export const OverviewDashboard = () => {
           </Link>
         </div>
       </div>
+
+      {/* AI Engine Status Banner — only show if Gemini is NOT configured */}
+      {healthStatus && healthStatus.geminiConfigured === false && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <Zap size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">AI Engine: Fallback Mode</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              <strong>GEMINI_API_KEY</strong> is not configured on your Render backend.
+              All generators are using the static fallback engine instead of real AI.
+              Add your key in the <a href="https://dashboard.render.com" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Render Dashboard</a> → Environment Variables.
+              Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline font-semibold">aistudio.google.com</a>.
+            </p>
+          </div>
+        </div>
+      )}
+      {healthStatus && healthStatus.geminiConfigured === true && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <p className="text-xs font-semibold text-emerald-700">
+            ✅ AI Engine: Gemini 1.5 Flash — Real AI generation active.
+            DB: {healthStatus.database === 'connected' ? '🟢 Connected' : '🔴 Offline'}
+          </p>
+        </div>
+      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">

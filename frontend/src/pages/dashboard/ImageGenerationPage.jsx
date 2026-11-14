@@ -1,418 +1,687 @@
+/**
+ * ZENVORA AI — Universal Intelligent Poster Generation Engine
+ * User enters any description → AI researches → generates professional poster.
+ * Works for ANY brand, ANY industry, ANY topic, ANY event.
+ */
+
 import {
-  AlertTriangle, Bot, Check, Download, ExternalLink,
-  Image, RefreshCw, Sparkles, X
+  AlertTriangle,
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  ExternalLink,
+  Globe,
+  Image as ImageIcon,
+  Layers,
+  Palette,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Tag,
+  Target,
+  Users,
+  Zap,
 } from 'lucide-react';
-import React, { useState } from 'react';
-import Badge from '../../components/ui/Badge';
+import React, { useRef, useState } from 'react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { api } from '../../services/api';
 
-const STYLES = [
+// ── Size presets ──────────────────────────────────────────────────────────────
+const SIZE_PRESETS = [
+  { key: 'square',    label: 'Square',    sub: '1024×1024',  icon: '⬜', hint: 'Instagram, Facebook' },
+  { key: 'portrait',  label: 'Portrait',  sub: '1080×1350',  icon: '📱', hint: 'Instagram Story-style' },
+  { key: 'landscape', label: 'Landscape', sub: '1200×627',   icon: '🖥️',  hint: 'LinkedIn, Twitter' },
+  { key: 'story',     label: 'Story',     sub: '1080×1920',  icon: '📲', hint: 'Stories / Reels' },
+  { key: 'wide',      label: 'Wide',      sub: '1600×900',   icon: '🖼️',  hint: 'YouTube, Twitter' },
+  { key: 'a4',        label: 'A4',        sub: '794×1123',   icon: '📄', hint: 'Print / PDF' },
+];
+
+// ── Design styles ─────────────────────────────────────────────────────────────
+const DESIGN_STYLES = [
   'Modern Professional',
   'Bold & Vibrant',
   'Minimal Clean',
   'Luxury Premium',
   'Playful Creative',
+  'Festive & Colorful',
+  'Dark & Dramatic',
+  'Pastel Soft',
   'Corporate Blue',
+  'Nature & Earth',
 ];
 
-const DIMENSION_PRESETS = [
-  { label: 'Square 1024×1024 (Instagram)', width: 1024, height: 1024 },
-  { label: 'Landscape 1200×627 (LinkedIn)', width: 1200, height: 627 },
-  { label: 'Portrait 1080×1350 (Instagram Story)', width: 1080, height: 1350 },
-  { label: 'Wide 1600×900 (Twitter/YouTube)', width: 1600, height: 900 },
+// ── Example prompts ───────────────────────────────────────────────────────────
+const EXAMPLE_PROMPTS = [
+  'Flipkart Diwali Sale',
+  'Nike Running Shoes Launch',
+  'Samsung Galaxy New Product Launch',
+  'Pune Coaching Classes Admission Open',
+  'Organic Skincare Product Launch',
+  'Restaurant Weekend Special Offer',
+  'World Environment Day',
+  'Real Estate Luxury Apartments',
+  'College Annual Tech Festival',
+  'New Technology Startup Launch',
+  'Independence Day Celebration',
+  'Apple iPhone Advertisement',
 ];
 
-export const ImageGenerationPage = () => {
-  // FRESH empty state — no pre-filled content
-  const [formData, setFormData] = useState({
-    campaignTitle: '',
-    brandName: '',
-    productService: '',
-    targetAudience: '',
-    offer: '',
-    keywords: '',
-    style: 'Modern Professional',
-    dimensionPreset: 'Square 1024×1024 (Instagram)',
-    width: 1024,
-    height: 1024,
-  });
+// ── Pipeline stage definitions ────────────────────────────────────────────────
+const PIPELINE_STAGES = [
+  { id: 'analyze',   icon: Bot,    label: 'Understanding your request...' },
+  { id: 'research',  icon: Search, label: 'Researching brand & topic...' },
+  { id: 'design',    icon: Layers, label: 'Designing poster layout...' },
+  { id: 'generate',  icon: Sparkles, label: 'Generating AI visuals...' },
+  { id: 'finalize',  icon: Zap,    label: 'Finalizing poster...' },
+];
 
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);       // null = no generation yet
-  const [error, setError] = useState(null);
-  const [imgError, setImgError] = useState(false);
-  const [history, setHistory] = useState([]);       // session-only history
-
-  const handleDimensionChange = (e) => {
-    const preset = DIMENSION_PRESETS.find(d => d.label === e.target.value);
-    if (preset) {
-      setFormData(prev => ({
-        ...prev,
-        dimensionPreset: preset.label,
-        width: preset.width,
-        height: preset.height,
-      }));
-    }
-  };
-
-  const handleGenerate = async (e) => {
-    e?.preventDefault();
-    if (!formData.campaignTitle.trim() && !formData.productService.trim()) {
-      setError('Please enter at least a Campaign Title or Product / Service to generate an image.');
-      return;
-    }
-    setError(null);
-    setImgError(false);
-    setLoading(true);
-
-    try {
-      const res = await api.generatePosterImage({
-        campaignTitle: formData.campaignTitle,
-        brandName: formData.brandName,
-        productService: formData.productService,
-        targetAudience: formData.targetAudience,
-        offer: formData.offer,
-        keywords: formData.keywords,
-        style: formData.style,
-        width: formData.width,
-        height: formData.height,
-      });
-      setResult(res);
-      // Prepend to session history (keep last 12)
-      setHistory(prev => [
-        { ...res, label: formData.campaignTitle || formData.productService || 'Untitled', id: Date.now() },
-        ...prev,
-      ].slice(0, 12));
-    } catch (err) {
-      setError(err?.message || 'Image generation failed. Please check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const field = (label, children) => (
-    <div className="space-y-1">
-      <label className="text-xs font-bold text-slate-700">{label}</label>
-      {children}
-    </div>
-  );
-
-  const selectClass = "w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-brand-violet";
-  const inputClass = "w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet";
+// ── Design Spec Card ──────────────────────────────────────────────────────────
+function DesignSpecCard({ designSpec, analysis }) {
+  if (!designSpec && !analysis) return null;
+  const spec = designSpec || {};
+  const an   = analysis || {};
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="teal" size="sm">AI Image Generation</Badge>
-          <span className="text-xs text-slate-400">• Using Pollinations.ai free image generation</span>
-        </div>
-        <h1 className="text-2xl font-extrabold text-brand-navy tracking-tight mt-1">Poster Generator</h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Create real AI-generated marketing images and posters. Powered by Pollinations.ai — no credits needed.
-        </p>
+    <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+      <div className="flex items-center gap-2 text-sm font-semibold text-white/80">
+        <Layers size={15} />
+        Design Intelligence
       </div>
-
-      {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center justify-between gap-2">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="shrink-0 hover:text-rose-900">
-            <X size={14} />
-          </button>
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        {(an.brandName || spec.brandName) && (
+          <InfoRow icon={<Tag size={13} />} label="Brand" value={an.brandName || spec.brandName} />
+        )}
+        {(an.industry || spec.industry) && (
+          <InfoRow icon={<Globe size={13} />} label="Industry" value={an.industry || spec.industry} />
+        )}
+        {(an.category || spec.detectedCategory) && (
+          <InfoRow icon={<Layers size={13} />} label="Category" value={an.category || spec.detectedCategory} />
+        )}
+        {(an.mood || spec.mood) && (
+          <InfoRow icon={<Palette size={13} />} label="Mood" value={an.mood || spec.mood} />
+        )}
+        {(an.targetAudience || spec.targetAudience) && (
+          <InfoRow icon={<Users size={13} />} label="Audience" value={an.targetAudience || spec.targetAudience} />
+        )}
+        {(an.posterType || spec.posterType) && (
+          <InfoRow icon={<Target size={13} />} label="Poster Type" value={(an.posterType || spec.posterType).replace(/-/g, ' ')} />
+        )}
+      </div>
+      {(an.headline || spec.headline) && (
+        <div className="rounded-lg bg-white/5 p-3 space-y-1">
+          <p className="text-xs text-white/50 uppercase tracking-wider">AI Generated Copy</p>
+          <p className="text-white font-semibold">"{an.headline || spec.headline}"</p>
+          {(an.subheadline || spec.subheadline) && (
+            <p className="text-white/60 text-sm">{an.subheadline || spec.subheadline}</p>
+          )}
+          {(an.cta || spec.cta) && (
+            <span className="inline-block mt-1 bg-indigo-500/20 text-indigo-300 text-xs px-2 py-1 rounded-full border border-indigo-400/30">
+              CTA: {an.cta || spec.cta}
+            </span>
+          )}
         </div>
       )}
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left: Input Form */}
-        <Card className="lg:col-span-5 p-6 space-y-4">
-          <form onSubmit={handleGenerate} className="space-y-4">
-            {field('Campaign Title',
-              <input
-                type="text"
-                value={formData.campaignTitle}
-                onChange={e => setFormData({ ...formData, campaignTitle: e.target.value })}
-                placeholder="e.g. Summer Sale 2025, Grand Opening..."
-                className={inputClass}
-              />
-            )}
+function InfoRow({ icon, label, value }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-white/40 mt-0.5">{icon}</span>
+      <div>
+        <p className="text-white/40 text-xs">{label}</p>
+        <p className="text-white/80 capitalize">{value}</p>
+      </div>
+    </div>
+  );
+}
 
-            <div className="grid grid-cols-2 gap-3">
-              {field('Brand Name',
-                <input
-                  type="text"
-                  value={formData.brandName}
-                  onChange={e => setFormData({ ...formData, brandName: e.target.value })}
-                  placeholder="e.g. ZENVORA"
-                  className={inputClass}
+// ── Main Component ────────────────────────────────────────────────────────────
+export const ImageGenerationPage = () => {
+  const [description, setDescription] = useState('');
+  const [size, setSize] = useState('square');
+  const [style, setStyle] = useState('');
+  const [additionalInstructions, setAdditionalInstructions] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const [pipelineStage, setPipelineStage] = useState(-1); // -1 = idle
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  // Edit panel state
+  const [editHeadline, setEditHeadline] = useState('');
+  const [editSubtext, setEditSubtext] = useState('');
+  const [editCta, setEditCta] = useState('');
+  const [editMode, setEditMode] = useState(false);
+
+  // History (session-only)
+  const [history, setHistory] = useState([]);
+
+  const imgRef = useRef(null);
+
+  const selectExample = (prompt) => {
+    setDescription(prompt);
+    setResult(null);
+    setError(null);
+  };
+
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  const handleGenerate = async (overrides = {}) => {
+    const desc = overrides.description || description;
+    if (!desc.trim()) {
+      setError('Please describe what you want to generate.');
+      return;
+    }
+
+    setLoading(true);
+    setResult(null);
+    setError(null);
+    setImgLoaded(false);
+    setImgError(false);
+    setPipelineStage(0); // "Understanding..."
+
+    try {
+      await sleep(400);
+      setPipelineStage(1); // "Researching..."
+
+      const payload = {
+        description: desc.trim(),
+        style: overrides.style || style,
+        size: overrides.size || size,
+        additionalInstructions,
+        customHeadline: overrides.customHeadline || editHeadline || '',
+        customSubtext: overrides.customSubtext || editSubtext || '',
+        customCta: overrides.customCta || editCta || '',
+      };
+
+      await sleep(500);
+      setPipelineStage(2); // "Designing..."
+
+      // Call the intelligent poster endpoint
+      const res = await api.generateIntelligentPoster(payload);
+
+      setPipelineStage(3); // "Generating AI visuals..."
+
+      const data = res.data || res;
+      if (!data.imageUrl) throw new Error('No image URL returned from server');
+
+      // Set initial edit values from AI analysis
+      if (data.analysis) {
+        setEditHeadline(data.analysis.headline || '');
+        setEditSubtext(data.analysis.subheadline || '');
+        setEditCta(data.analysis.cta || '');
+      }
+
+      setPipelineStage(4); // "Finalizing..."
+      await sleep(300);
+
+      setResult(data);
+
+      // Add to session history
+      setHistory(prev => [
+        { id: Date.now(), description: desc, imageUrl: data.imageUrl, thumb: data.imageUrl },
+        ...prev.slice(0, 11),
+      ]);
+    } catch (err) {
+      console.error('[PosterGen] Error:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Generation failed. Please try again.';
+      setError(msg);
+    } finally {
+      setLoading(false);
+      setPipelineStage(-1);
+    }
+  };
+
+  const handleRegenerate = () => {
+    handleGenerate({
+      customHeadline: editHeadline,
+      customSubtext: editSubtext,
+      customCta: editCta,
+    });
+  };
+
+  const handleDownload = () => {
+    if (!result?.imageUrl) return;
+    window.open(result.imageUrl, '_blank');
+  };
+
+  const currentStage = pipelineStage >= 0 ? PIPELINE_STAGES[pipelineStage] : null;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+
+        {/* ── Header ── */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-400/20 px-4 py-2 rounded-full text-indigo-300 text-sm">
+            <Sparkles size={15} />
+            Universal AI Poster Generator
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold text-white">
+            Describe anything.{' '}
+            <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+              Get a stunning poster.
+            </span>
+          </h1>
+          <p className="text-white/50 text-sm max-w-xl mx-auto">
+            Works for any brand, product, event, campaign or idea. AI researches the topic and designs a professional poster automatically.
+          </p>
+        </div>
+
+        {/* ── Main Grid ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+          {/* LEFT — Input Panel */}
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="p-5 space-y-4">
+              {/* Main description textarea */}
+              <div>
+                <label className="text-sm font-medium text-white/70 mb-2 block">
+                  Describe your poster
+                </label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="e.g. Flipkart Diwali Sale, Nike Running Shoes Launch, Pune Coaching Classes Admission Open, World Environment Day..."
+                  rows={4}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-indigo-400/60 resize-none text-sm"
+                  onKeyDown={e => e.key === 'Enter' && e.ctrlKey && handleGenerate()}
                 />
-              )}
-              {field('Product / Service *',
-                <input
-                  type="text"
-                  value={formData.productService}
-                  onChange={e => setFormData({ ...formData, productService: e.target.value })}
-                  placeholder="e.g. AI Marketing Suite"
-                  className={inputClass}
-                />
-              )}
-            </div>
-
-            {field('Target Audience',
-              <input
-                type="text"
-                value={formData.targetAudience}
-                onChange={e => setFormData({ ...formData, targetAudience: e.target.value })}
-                placeholder="e.g. Entrepreneurs, 25-40, tech-savvy"
-                className={inputClass}
-              />
-            )}
-
-            {field('Special Offer / Tagline',
-              <input
-                type="text"
-                value={formData.offer}
-                onChange={e => setFormData({ ...formData, offer: e.target.value })}
-                placeholder="e.g. 50% off, Free trial, Limited time"
-                className={inputClass}
-              />
-            )}
-
-            {field('Keywords (comma separated)',
-              <input
-                type="text"
-                value={formData.keywords}
-                onChange={e => setFormData({ ...formData, keywords: e.target.value })}
-                placeholder="e.g. bold, modern, tech, blue"
-                className={inputClass}
-              />
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              {field('Visual Style',
-                <select
-                  value={formData.style}
-                  onChange={e => setFormData({ ...formData, style: e.target.value })}
-                  className={selectClass}
-                >
-                  {STYLES.map(s => <option key={s}>{s}</option>)}
-                </select>
-              )}
-              {field('Dimensions',
-                <select
-                  value={formData.dimensionPreset}
-                  onChange={handleDimensionChange}
-                  className={selectClass}
-                >
-                  {DIMENSION_PRESETS.map(d => <option key={d.label}>{d.label}</option>)}
-                </select>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
-              <span className="font-bold text-slate-500">Size:</span>
-              <span>{formData.width} × {formData.height}px</span>
-              <span className="ml-auto text-slate-300">•</span>
-              <a
-                href="https://image.pollinations.ai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-0.5 text-brand-teal hover:underline"
-              >
-                Pollinations.ai <ExternalLink size={9} />
-              </a>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                disabled={loading}
-                className="flex-1 font-bold shadow-md shadow-brand-violet/25"
-              >
-                {loading
-                  ? <><RefreshCw size={14} className="animate-spin" /><span>Generating...</span></>
-                  : <><Sparkles size={14} className="text-brand-teal" /><span>Generate Image</span></>
-                }
-              </Button>
-              {result && !loading && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  onClick={handleGenerate}
-                  title="Regenerate with same params"
-                  className="px-3"
-                >
-                  <RefreshCw size={14} />
-                </Button>
-              )}
-            </div>
-          </form>
-        </Card>
-
-        {/* Right: Output */}
-        <Card className="lg:col-span-7 p-6 min-h-[500px] flex flex-col">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-            <div className="flex items-center gap-2">
-              <Bot size={16} className="text-brand-violet" />
-              <span className="font-bold text-sm text-brand-navy">Generated Image</span>
-              {result?.model && (
-                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-mono">
-                  {result.model}
-                </span>
-              )}
-            </div>
-            {result?.imageUrl && !imgError && (
-              <div className="flex items-center gap-1.5">
-                <a
-                  href={result.imageUrl}
-                  download="zenvora-poster.jpg"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-brand-violet text-xs flex items-center gap-1 transition-colors"
-                >
-                  <Download size={13} />
-                  <span className="text-[11px]">Download</span>
-                </a>
-                <a
-                  href={result.imageUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-brand-violet text-xs flex items-center gap-1 transition-colors"
-                >
-                  <ExternalLink size={13} />
-                  <span className="text-[11px]">Open</span>
-                </a>
+                <p className="text-xs text-white/30 mt-1">Ctrl+Enter to generate</p>
               </div>
-            )}
+
+              {/* Size selector */}
+              <div>
+                <label className="text-sm font-medium text-white/70 mb-2 block">Poster Size</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {SIZE_PRESETS.map(preset => (
+                    <button
+                      key={preset.key}
+                      onClick={() => setSize(preset.key)}
+                      className={`p-2 rounded-lg border text-center transition-all text-xs ${
+                        size === preset.key
+                          ? 'border-indigo-400 bg-indigo-500/20 text-indigo-300'
+                          : 'border-white/10 bg-white/5 text-white/50 hover:border-white/30'
+                      }`}
+                    >
+                      <div className="text-base mb-0.5">{preset.icon}</div>
+                      <div className="font-medium">{preset.label}</div>
+                      <div className="text-white/40">{preset.sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Advanced options */}
+              <div>
+                <button
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors"
+                >
+                  {showAdvanced ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  Advanced Options
+                </button>
+
+                {showAdvanced && (
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <label className="text-xs text-white/50 mb-1 block">Design Style (optional)</label>
+                      <select
+                        value={style}
+                        onChange={e => setStyle(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-400/60"
+                      >
+                        <option value="">Auto (AI chooses best style)</option>
+                        {DESIGN_STYLES.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-white/50 mb-1 block">Additional Instructions (optional)</label>
+                      <input
+                        type="text"
+                        value={additionalInstructions}
+                        onChange={e => setAdditionalInstructions(e.target.value)}
+                        placeholder="e.g. include Indian festival elements, blue color scheme..."
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/30 focus:outline-none focus:border-indigo-400/60"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Generate button */}
+              <Button
+                onClick={() => handleGenerate()}
+                disabled={loading || !description.trim()}
+                className="w-full"
+                size="lg"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin mr-2" />
+                    {currentStage?.label || 'Generating...'}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={16} className="mr-2" />
+                    Research &amp; Generate Poster
+                  </>
+                )}
+              </Button>
+            </Card>
+
+            {/* Example prompts */}
+            <Card className="p-4">
+              <p className="text-xs font-medium text-white/40 uppercase tracking-wider mb-3">Try an example</p>
+              <div className="flex flex-wrap gap-2">
+                {EXAMPLE_PROMPTS.map(ex => (
+                  <button
+                    key={ex}
+                    onClick={() => selectExample(ex)}
+                    className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white/90 px-3 py-1.5 rounded-full transition-all"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </Card>
           </div>
 
-          <div className="flex-1">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center gap-4 py-10">
-                {/* Loading skeleton */}
-                <div className="w-full max-w-sm aspect-square bg-slate-100 rounded-2xl animate-pulse flex items-center justify-center">
-                  <Image size={48} className="text-slate-200" />
+          {/* RIGHT — Output Panel */}
+          <div className="lg:col-span-3 space-y-4">
+
+            {/* Loading pipeline */}
+            {loading && (
+              <Card className="p-6">
+                <div className="space-y-3">
+                  {PIPELINE_STAGES.map((stage, i) => {
+                    const Icon = stage.icon;
+                    const isDone    = i < pipelineStage;
+                    const isActive  = i === pipelineStage;
+                    const isPending = i > pipelineStage;
+                    return (
+                      <div
+                        key={stage.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+                          isActive  ? 'bg-indigo-500/20 border border-indigo-400/30' :
+                          isDone    ? 'bg-green-500/10 border border-green-500/20' :
+                                      'opacity-30'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          isActive ? 'bg-indigo-500/30' :
+                          isDone   ? 'bg-green-500/20'  : 'bg-white/5'
+                        }`}>
+                          {isDone ? (
+                            <span className="text-green-400 text-sm">✓</span>
+                          ) : (
+                            <Icon size={15} className={isActive ? 'text-indigo-300 animate-pulse' : 'text-white/40'} />
+                          )}
+                        </div>
+                        <span className={`text-sm ${
+                          isActive ? 'text-indigo-200 font-medium' :
+                          isDone   ? 'text-green-300'              : 'text-white/40'
+                        }`}>
+                          {stage.label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="space-y-2 text-center">
-                  <p className="text-xs text-slate-500">
-                    Rendering your poster via Pollinations.ai…
-                  </p>
-                  <p className="text-[10px] text-slate-400">This may take 10–30 seconds for high-res images</p>
+                <p className="text-xs text-white/30 text-center mt-4">
+                  AI is researching and generating your poster. This takes 10–30 seconds.
+                </p>
+              </Card>
+            )}
+
+            {/* Error state */}
+            {error && !loading && (
+              <Card className="p-6">
+                <div className="flex items-start gap-3 text-red-300">
+                  <AlertTriangle size={20} className="mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Generation Failed</p>
+                    <p className="text-sm text-white/50 mt-1">{error}</p>
+                  </div>
                 </div>
-              </div>
-            ) : result ? (
-              <>
-                {imgError ? (
-                  <div className="flex flex-col items-center justify-center gap-3 py-10 text-slate-400">
-                    <AlertTriangle size={32} className="text-amber-400" />
-                    <p className="text-xs text-slate-500 text-center max-w-xs">
-                      The image could not be loaded. This can happen with cross-origin restrictions.
-                      Try opening the image directly.
-                    </p>
+                <Button
+                  onClick={() => handleGenerate()}
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                >
+                  <RefreshCw size={14} className="mr-2" /> Try Again
+                </Button>
+              </Card>
+            )}
+
+            {/* Result */}
+            {result && !loading && (
+              <div className="space-y-4">
+
+                {/* Poster image */}
+                <Card className="p-4">
+                  <div className="relative rounded-xl overflow-hidden bg-black/30 min-h-64 flex items-center justify-center">
+                    {!imgLoaded && !imgError && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/40">
+                        <ImageIcon size={32} className="animate-pulse" />
+                        <span className="text-sm">Loading image from AI...</span>
+                        <p className="text-xs text-white/25">Pollinations.ai can take 15–30s to render</p>
+                      </div>
+                    )}
+                    {imgError && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/40 p-6 text-center">
+                        <AlertTriangle size={28} />
+                        <p className="text-sm">Image preview blocked by browser security.</p>
+                        <a
+                          href={result.imageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-400 underline text-sm flex items-center gap-1 hover:text-indigo-300"
+                        >
+                          Open full image in new tab <ExternalLink size={13} />
+                        </a>
+                      </div>
+                    )}
+                    <img
+                      ref={imgRef}
+                      src={result.imageUrl}
+                      alt={description}
+                      onLoad={() => setImgLoaded(true)}
+                      onError={() => setImgError(true)}
+                      className={`w-full max-h-[600px] object-contain rounded-lg transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    />
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <Button onClick={handleDownload} variant="outline" size="sm">
+                      <Download size={14} className="mr-2" /> Download / Open
+                    </Button>
                     <a
                       href={result.imageUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-brand-violet hover:underline flex items-center gap-1"
+                      className="inline-flex items-center gap-1.5 text-xs border border-white/10 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/90 rounded-lg px-3 py-2 transition-all"
                     >
-                      Open image URL <ExternalLink size={11} />
+                      <ExternalLink size={13} /> Full Size
                     </a>
+                    <Button onClick={handleRegenerate} variant="outline" size="sm">
+                      <RefreshCw size={14} className="mr-2" /> Regenerate
+                    </Button>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center">
-                      <img
-                        src={result.imageUrl}
-                        alt={formData.campaignTitle || 'Generated marketing poster'}
-                        className="w-full h-auto object-contain max-h-[420px]"
-                        onError={() => setImgError(true)}
+                </Card>
+
+                {/* Design spec */}
+                <DesignSpecCard designSpec={result.designSpec} analysis={result.analysis} />
+
+                {/* Edit & Regenerate panel */}
+                <Card className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-white/80">Edit Copy & Regenerate</span>
+                    <button
+                      onClick={() => setEditMode(!editMode)}
+                      className="text-xs text-indigo-400 hover:text-indigo-300"
+                    >
+                      {editMode ? 'Hide' : 'Edit'}
+                    </button>
+                  </div>
+                  {editMode && (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={editHeadline}
+                        onChange={e => setEditHeadline(e.target.value)}
+                        placeholder="Custom headline..."
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/30 focus:outline-none focus:border-indigo-400/60"
                       />
+                      <input
+                        type="text"
+                        value={editSubtext}
+                        onChange={e => setEditSubtext(e.target.value)}
+                        placeholder="Custom subheadline..."
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/30 focus:outline-none focus:border-indigo-400/60"
+                      />
+                      <input
+                        type="text"
+                        value={editCta}
+                        onChange={e => setEditCta(e.target.value)}
+                        placeholder="Custom CTA (e.g. Shop Now, Learn More)..."
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/30 focus:outline-none focus:border-indigo-400/60"
+                      />
+                      <Button onClick={handleRegenerate} size="sm" disabled={loading}>
+                        <Sparkles size={14} className="mr-2" /> Regenerate with Edits
+                      </Button>
                     </div>
-                    <div className="w-full text-[10px] text-slate-400 flex items-center justify-between">
-                      <span>
-                        Generated {result.generatedAt ? new Date(result.generatedAt).toLocaleTimeString() : 'just now'}
-                        {result.width && result.height && ` • ${result.width}×${result.height}px`}
-                      </span>
-                      {result.model && <span>via {result.model}</span>}
-                    </div>
-                  </div>
+                  )}
+                </Card>
+
+                {/* Research info */}
+                {result.research && (result.research.brandInfo || result.research.sources?.length > 0) && (
+                  <Card className="p-4 space-y-2">
+                    <p className="text-xs font-semibold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                      <Search size={12} /> Research Data
+                    </p>
+                    {result.research.brandInfo && (
+                      <p className="text-sm text-white/60">{result.research.brandInfo}</p>
+                    )}
+                    {result.research.officialWebsite && (
+                      <a
+                        href={result.research.officialWebsite.startsWith('http') ? result.research.officialWebsite : `https://${result.research.officialWebsite}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
+                      >
+                        <ExternalLink size={11} /> {result.research.officialWebsite}
+                      </a>
+                    )}
+                    {result.research.sources?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {result.research.sources.slice(0, 3).map((s, i) => (
+                          s.url ? (
+                            <a
+                              key={i}
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white/70 px-2 py-1 rounded-md transition-all"
+                            >
+                              {s.title?.substring(0, 30) || 'Source'}
+                            </a>
+                          ) : (
+                            <span key={i} className="text-xs text-white/30 italic">{s.title}</span>
+                          )
+                        ))}
+                      </div>
+                    )}
+                    {result.logoResult && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <img
+                          src={result.logoResult.logoUrl}
+                          alt="Brand logo"
+                          className="w-6 h-6 rounded object-contain bg-white p-0.5"
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                        <span className="text-xs text-white/40">
+                          Logo via {result.logoResult.source}
+                        </span>
+                      </div>
+                    )}
+                  </Card>
                 )}
-              </>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center gap-3 py-16 text-slate-300">
-                <Image size={40} className="opacity-30" />
-                <p className="text-xs text-slate-400 text-center max-w-xs">
-                  Fill in your campaign details and click Generate Image to create a real AI poster.
-                </p>
-                <span className="text-[10px] text-slate-300 bg-slate-50 border border-slate-100 px-2 py-1 rounded-md">
-                  Powered by Pollinations.ai — free & real AI generation
-                </span>
               </div>
             )}
-          </div>
-        </Card>
-      </div>
 
-      {/* Session History */}
-      {history.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-brand-navy">Session History</h2>
-            <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-              {history.length} image{history.length !== 1 ? 's' : ''} this session
-            </span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {history.map(item => (
-              <div
-                key={item.id}
-                className="group relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-square cursor-pointer hover:border-brand-violet/40 transition-colors"
-              >
-                <img
-                  src={item.imageUrl}
-                  alt={item.label}
-                  className="w-full h-full object-cover"
-                  onError={e => { e.target.style.display = 'none'; }}
-                />
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-brand-navy/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-2">
-                  <a
-                    href={item.imageUrl}
-                    download={`zenvora-poster-${item.id}.jpg`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="flex items-center gap-1 text-[10px] text-white bg-white/20 hover:bg-white/30 rounded-lg px-2 py-1 transition-colors"
-                  >
-                    <Download size={10} /> Download
-                  </a>
-                  <a
-                    href={item.imageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="flex items-center gap-1 text-[10px] text-white bg-white/20 hover:bg-white/30 rounded-lg px-2 py-1 transition-colors"
-                  >
-                    <ExternalLink size={10} /> View
-                  </a>
+            {/* Empty state */}
+            {!result && !loading && !error && (
+              <Card className="p-12 flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-20 h-20 rounded-full bg-indigo-500/10 border border-indigo-400/20 flex items-center justify-center">
+                  <Sparkles size={36} className="text-indigo-400/60" />
                 </div>
-                {/* Label */}
-                <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-brand-navy/70 to-transparent">
-                  <p className="text-[9px] text-white truncate font-medium">{item.label}</p>
+                <div>
+                  <h3 className="text-white/70 font-semibold text-lg">Your poster will appear here</h3>
+                  <p className="text-white/40 text-sm mt-1 max-w-xs">
+                    Type any description in the left panel. The AI will research the topic and generate a professional poster.
+                  </p>
                 </div>
-              </div>
-            ))}
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {EXAMPLE_PROMPTS.slice(0, 4).map(ex => (
+                    <button
+                      key={ex}
+                      onClick={() => selectExample(ex)}
+                      className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-400/20 text-indigo-300 hover:text-indigo-200 px-3 py-1.5 rounded-full transition-all"
+                    >
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            )}
           </div>
-          <p className="text-[10px] text-slate-400">
-            Session history is temporary and will clear on page refresh.
-          </p>
         </div>
-      )}
+
+        {/* ── Session History Grid ── */}
+        {history.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-3">
+              Session History ({history.length})
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {history.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setDescription(item.description);
+                    setResult({ imageUrl: item.imageUrl });
+                    setImgLoaded(false);
+                    setImgError(false);
+                  }}
+                  className="group relative rounded-xl overflow-hidden border border-white/10 hover:border-indigo-400/40 transition-all aspect-square bg-black/20"
+                >
+                  <img
+                    src={item.thumb}
+                    alt={item.description}
+                    className="w-full h-full object-cover"
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-white text-xs line-clamp-2">{item.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -104,6 +104,25 @@ const server = app.listen(PORT, async () => {
   console.log(`🩺 Health check: /api/health`);
   console.log('=============================================================\n');
 
+  // ── Environment variable audit ──────────────────────────────────────────────
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey || geminiKey.trim() === '' || geminiKey === 'your_gemini_api_key_here') {
+    console.warn('⚠️  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.warn('⚠️  GEMINI_API_KEY is NOT configured!');
+    console.warn('⚠️  All AI generators will use the static fallback engine.');
+    console.warn('⚠️  To enable REAL AI: Set GEMINI_API_KEY in Render dashboard.');
+    console.warn('⚠️  Get a free key at: https://aistudio.google.com/app/apikey');
+    console.warn('⚠️  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  } else {
+    console.log(`✅ GEMINI_API_KEY: configured (${geminiKey.substring(0, 6)}...)`);
+  }
+
+  const mongoUri = process.env.MONGO_URI;
+  if (!mongoUri || mongoUri.trim() === '' || mongoUri.includes('<')) {
+    console.warn('⚠️  MONGO_URI is NOT configured or still has placeholders!');
+    console.warn('⚠️  Set MONGO_URI in Render environment variables.\n');
+  }
+
   // Connect to MongoDB Atlas (non-blocking)
   await connectDB();
 });

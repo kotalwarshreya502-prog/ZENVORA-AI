@@ -24,11 +24,11 @@ import { api } from '../../services/api';
 export const BlogGeneratorPage = () => {
   const [activeTab, setActiveTab] = useState('generator'); // 'generator' | 'history'
   const [formData, setFormData] = useState({
-    topic: 'How Generative AI is Reshaping B2B Content Marketing in 2026',
-    targetKeyword: 'AI content marketing strategy',
-    secondaryKeywords: 'organic traffic, content automation, brand voice',
-    audience: 'CMOs, Founders, and Agency Leaders',
-    tone: 'Authoritative, analytical, and actionable',
+    topic: '',
+    targetKeyword: '',
+    secondaryKeywords: '',
+    audience: '',
+    tone: 'Authoritative and insightful',
     length: 'Comprehensive (1500+ words)',
   });
 
@@ -45,7 +45,7 @@ export const BlogGeneratorPage = () => {
   const loadSavedBlogs = async () => {
     try {
       const res = await api.getBlogs();
-      setSavedBlogs(res?.blogs || []);
+      setSavedBlogs(res?.data?.blogs || res?.blogs || []);
     } catch (err) {
       console.warn('Could not load blogs:', err.message);
     }
@@ -53,6 +53,7 @@ export const BlogGeneratorPage = () => {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
+    if (!formData.topic.trim()) return;
     setLoading(true);
     setCopied(false);
     setSaveSuccess(false);
@@ -68,7 +69,10 @@ export const BlogGeneratorPage = () => {
         secondaryKeywords: keywordsArray,
       });
 
-      setBlogOutput(res);
+      // res = response.data from axios interceptor (already flattened)
+      // blog data may be at res directly or res.data
+      const blogData = res?.data ?? res;
+      setBlogOutput(blogData);
     } catch (err) {
       alert(`Blog generation failed: ${err.message}`);
     } finally {

@@ -17,6 +17,7 @@ import historyRoutes from './historyRoutes.js';
 import researchRoutes from './researchRoutes.js';
 import competitorRoutes from './competitorRoutes.js';
 import imageRoutes from './imageRoutes.js';
+import posterRoutes from './posterRoutes.js';
 
 const router = express.Router();
 
@@ -73,5 +74,8 @@ router.use('/competitor', competitorRoutes);
 
 // Image Generation
 router.use('/image', imageRoutes);
+
+// Poster Generation (Universal Intelligent Poster Engine)
+router.use('/poster', posterRoutes);
 
 export default router;

@@ -1,14 +1,22 @@
 /**
  * ZENVORA AI - Gemini AI Service
  * Real server-side Google Gemini integration with brand-aware prompt engineering.
+ * 
+ * DESIGN PRINCIPLES:
+ * - Every generation is 100% driven by user-supplied inputs.
+ * - No hardcoded brand names, industry templates, or B2B defaults.
+ * - Fallback engine mirrors the same topic-specificity as the Gemini path.
+ * - If Gemini API key is missing or the call fails, return an honest error note —
+ *   never silently substitute unrelated content.
  */
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GEMINI_PRO_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
 
 export const GeminiService = {
   /**
    * Calls Google Gemini API if GEMINI_API_KEY is available.
-   * Otherwise falls back to our intelligent contextual generator.
+   * Returns null if the key is absent or the call fails (caller handles fallback).
    */
   callGemini: async (prompt, systemInstruction = '') => {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -23,10 +31,10 @@ export const GeminiService = {
             },
           ],
           generationConfig: {
-            temperature: 0.7,
+            temperature: 0.8,
             topK: 40,
             topP: 0.95,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 4096,
           },
         };
 
@@ -40,109 +48,114 @@ export const GeminiService = {
           const data = await res.json();
           const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) {
-            return {
-              text,
-              source: 'gemini-1.5-flash',
-              success: true,
-            };
+            return { text, source: 'gemini-1.5-flash', success: true };
           }
         } else {
           const errData = await res.json().catch(() => ({}));
           console.warn('⚠️ Gemini API error response:', errData);
         }
       } catch (err) {
-        console.warn('⚠️ Gemini request failed, using contextual generator fallback:', err.message);
+        console.warn('⚠️ Gemini request failed:', err.message);
       }
     }
 
-    return null;
+    return null; // Signal to caller: use fallback
   },
 
   /**
    * AI Content Studio Generator
-   * Brand-aware, topic-specific, platform-optimized content generation.
+   *
+   * Fully dynamic — driven entirely by:
+   *   brandName, industry, topic, platform, tone, objective,
+   *   targetAudience, keywords, language, length, type
+   *
    * Rules:
-   *  - Never inject unrelated B2B/SaaS defaults into non-B2B content
-   *  - Hashtags are always separate tokens, never concatenated
-   *  - Every output is scoped 100% to the provided topic, brand, and industry
-   *  - Fallback engine mirrors the same topic-specificity as the Gemini path
+   *  - NEVER inject unrelated B2B/SaaS defaults for non-B2B content.
+   *  - Hashtags are always SEPARATE tokens, never concatenated.
+   *  - Every output is scoped 100% to the provided topic, brand, and industry.
+   *  - Fallback mirrors the same topic-specificity as the Gemini path.
    */
   generateMarketingContent: async ({
-    type = 'Social Post',
-    platform = 'Instagram',
-    industry = '',
+    type           = 'Social Post',
+    platform       = 'Instagram',
+    industry       = '',
     targetAudience = '',
     topic,
-    tone = 'Engaging',
-    language = 'English',
-    keywords = '',
-    objective = '',
-    brandName = '',
-    length = 'Medium',
+    tone           = 'Engaging',
+    language       = 'English',
+    keywords       = '',
+    objective      = '',
+    brandName      = '',
+    length         = 'Medium',
     brandGuidelines = null,
   }) => {
     // ── 1. Build brand context from stored guidelines (if any) ───────────────
-    const storedVoice = brandGuidelines?.brandVoice || '';
-    const storedKeywords = (brandGuidelines?.preferredKeywords || []).join(', ');
-    const restrictedWords = (brandGuidelines?.restrictedWords || []).join(', ');
-    const storedTagline = brandGuidelines?.tagline || '';
-    const storedBusinessName = brandGuidelines?.businessName || brandName || '';
+    const storedVoice        = brandGuidelines?.brandVoice || '';
+    const storedKeywords     = (brandGuidelines?.preferredKeywords || []).join(', ');
+    const restrictedWords    = (brandGuidelines?.restrictedWords || []).join(', ');
+    const storedTagline      = brandGuidelines?.tagline || '';
+    // Prefer the form-entered brandName, then fall back to saved guidelines
+    const effectiveBrandName = brandName.trim() || brandGuidelines?.businessName || '';
 
-    // Build the brand block — only include fields that are actually set
     const brandLines = [
-      storedBusinessName && `Brand Name: ${storedBusinessName}`,
-      storedTagline && `Tagline: ${storedTagline}`,
-      storedVoice && `Brand Voice: ${storedVoice}`,
-      storedKeywords && `Brand Keywords: ${storedKeywords}`,
-      restrictedWords && `Restricted Words (never use): ${restrictedWords}`,
+      effectiveBrandName       && `Brand Name: ${effectiveBrandName}`,
+      storedTagline            && `Tagline: ${storedTagline}`,
+      storedVoice              && `Brand Voice: ${storedVoice}`,
+      storedKeywords           && `Brand Keywords: ${storedKeywords}`,
+      restrictedWords          && `Restricted Words (never use): ${restrictedWords}`,
     ].filter(Boolean);
 
     const brandBlock = brandLines.length > 0
       ? brandLines.join('\n')
-      : `Brand Name: ${storedBusinessName || 'the brand'}`;
+      : effectiveBrandName
+        ? `Brand Name: ${effectiveBrandName}`
+        : 'Brand Name: (not specified — write generically)';
 
-    // ── 2. Parse user-supplied keywords into a clean list ────────────────────
+    // ── 2. Parse user-supplied keywords ──────────────────────────────────────
     const keywordList = keywords
       ? keywords.split(',').map(k => k.trim()).filter(Boolean)
       : [];
 
-    // ── 3. Build the hashtag instruction ─────────────────────────────────────
-    // Each keyword becomes its own #hashtag — NEVER concatenate
+    // ── 3. Build hashtag instruction ──────────────────────────────────────────
+    // Always SEPARATE tokens — never merge multiple words into one hashtag
     const hashtagInstruction = keywordList.length > 0
-      ? `Generate relevant hashtags. Each keyword or phrase must be a SEPARATE hashtag token (e.g. #FlashSale #BigDiscount #ShopNow). Keywords to base hashtags on: ${keywordList.join(', ')}.`
-      : `Generate 5-8 relevant, separate hashtags for the topic "${topic}" and platform ${platform}. Each must be a separate #word.`;
+      ? `Generate relevant hashtags. EACH keyword or phrase must be a SEPARATE hashtag token.\nCorrect examples: #BigSale #ElectronicsDeals #FashionOffers\nIncorrect: #BigSaleElectronicsDeals (never concatenate unrelated words)\nKeywords to base hashtags on: ${keywordList.join(', ')}.`
+      : `Generate 5-8 relevant, separate hashtags for the topic "${topic}" and ${platform}. Each must be a separate #Word or #TwoWords at most.`;
 
-    // ── 4. Platform-specific character / format guidance ─────────────────────
+    // ── 4. Platform-specific format guidance ──────────────────────────────────
     const platformGuide = {
-      Instagram: 'Instagram caption: punchy opening line, 150-200 words max, 5-10 hashtags at end, include relevant emojis.',
-      Facebook: 'Facebook post: conversational, can be longer (up to 300 words), 3-5 hashtags, encourage engagement.',
-      LinkedIn: 'LinkedIn post: professional tone, insightful opening hook, up to 300 words, 3-5 hashtags.',
-      'X (Twitter)': 'X/Twitter post: under 280 characters for the main text, 2-3 hashtags, punchy and direct.',
-      YouTube: 'YouTube description: 150-250 words, include SEO keywords naturally, timestamps if applicable, 5 hashtags.',
-      'Blog / Website': 'Blog intro paragraph: 100-200 words, SEO-optimized opening that hooks the reader.',
+      'Instagram':     'Instagram caption: punchy opening line, 150-200 words max, 5-10 hashtags at end, include relevant emojis.',
+      'Facebook':      'Facebook post: conversational tone, up to 300 words, 3-5 hashtags, encourage engagement.',
+      'LinkedIn':      'LinkedIn post: professional tone, insightful opening hook, up to 300 words, 3-5 hashtags.',
+      'X (Twitter)':   'X/Twitter post: under 280 characters for the main text, 2-3 hashtags, punchy and direct.',
+      'YouTube':       'YouTube description: 150-250 words, include SEO keywords naturally, timestamps if applicable, 5 hashtags.',
+      'Blog / Website':'Blog intro paragraph: 100-200 words, SEO-optimized opening that hooks the reader.',
     };
-    const platformInstructions = platformGuide[platform] || `${platform} post: appropriate length and format for the platform.`;
+    const platformInstructions = platformGuide[platform]
+      || `${platform} post: appropriate length and format for the platform.`;
 
-    // ── 5. Construct the system prompt ───────────────────────────────────────
-    const systemPrompt = `You are an expert marketing copywriter. You write platform-specific, brand-aligned content.
+    // ── 5. System prompt ──────────────────────────────────────────────────────
+    const systemPrompt = `You are an expert marketing copywriter who generates platform-specific, brand-aligned content.
 
 STRICT RULES:
 1. Write ONLY about the given TOPIC. Do not introduce unrelated marketing concepts.
-2. Match the INDUSTRY and AUDIENCE — an e-commerce sale post must sound like a sale post, not a B2B SaaS pitch.
-3. Use the brand's actual name, keywords, and tone — do not invent generic filler.
-4. Hashtags must be SEPARATE tokens — never merge multiple words into one tag unless it is a known brand hashtag.
+2. Match the INDUSTRY and AUDIENCE — a food delivery post must sound like food content, not a B2B SaaS pitch; a healthcare campaign must sound like health content, not e-commerce.
+3. Use the brand's actual name and the entered keywords — do not invent generic filler.
+4. Hashtags must be SEPARATE tokens — never merge multiple words into one tag.
+   Correct: #BigSale #Electronics #Flipkart
+   Wrong: #BigSaleElectronicsFlipkartOffers
 5. The CTA must relate directly to the campaign topic and objective.
-6. Never use: "pipeline velocity", "compounding asset", "decision makers" or other unrelated jargon unless the industry actually requires it.
+6. NEVER use jargon unrelated to the given industry (e.g., do not say "pipeline velocity" for a food brand).
 7. Output in ${language}.
 
 BRAND PROFILE:
 ${brandBlock}`;
 
-    // ── 6. Construct the user prompt ─────────────────────────────────────────
+    // ── 6. User prompt ────────────────────────────────────────────────────────
     const userPrompt = `Write a ${type} for ${platform}.
 
 TOPIC: ${topic}
-INDUSTRY: ${industry || 'General / Retail'}
+INDUSTRY: ${industry || 'General'}
 TARGET AUDIENCE: ${targetAudience || 'General public'}
 TONE: ${tone}
 LENGTH: ${length}
@@ -154,65 +167,55 @@ PLATFORM FORMAT RULES: ${platformInstructions}
 HASHTAG RULES: ${hashtagInstruction}
 
 Structure your output as:
+
 **Hook / Headline:**
 [platform-appropriate opening line or headline]
 
 **Main Content:**
-[body copy matching the platform format, length, and tone — 100% relevant to the topic]
+[body copy matching the platform format, length, and tone — 100% relevant to the topic and industry]
 
 **Call to Action:**
 [a direct CTA relevant to: ${objective || topic}]
 
 **Hashtags:**
-[list each hashtag on a new line or space-separated — each is a SEPARATE #token]`;
+[list each hashtag separated by spaces — each is a SEPARATE #token]`;
 
     // ── 7. Call Gemini ────────────────────────────────────────────────────────
     const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
     if (liveResult) {
       return {
-        content: liveResult.text,
+        content:     liveResult.text,
         type,
         platform,
         topic,
-        brandName: storedBusinessName,
-        model: liveResult.source,
+        brandName:   effectiveBrandName,
+        model:       liveResult.source,
         generatedAt: new Date().toISOString(),
       };
     }
 
-    // ── 8. Topic-aware fallback (no hardcoded B2B defaults) ──────────────────
-    // Build a topic-specific hook relevant to the actual industry/topic
-    const industryLower = (industry || 'retail').toLowerCase();
-    const isEcommerce = /e.?comm|retail|shop|sale|fashion|consumer|product|store/i.test(industryLower + topic);
-    const isFoodBev = /food|beverage|restaurant|cafe|snack|drink/i.test(industryLower + topic);
-    const isHealthFit = /health|fitness|wellness|gym|yoga|diet/i.test(industryLower + topic);
-    const isTech = /tech|software|saas|app|digital|ai|platform/i.test(industryLower);
+    // ── 8. Honest topic-aware fallback ────────────────────────────────────────
+    // Build content driven purely by the user's inputs — no industry assumptions
+    const displayBrand    = effectiveBrandName || 'Our Brand';
+    const displayAudience = targetAudience     || 'everyone';
+    const displayObj      = objective          || 'engage with our audience';
 
-    let hook, coreMsg, cta;
+    // Build an industry-contextual hook without hardcoding specific brands or scenarios
+    const industryContext = industry
+      ? `in the ${industry} space`
+      : '';
 
-    if (isEcommerce) {
-      hook = `🛍️ ${topic} — The deals you've been waiting for are finally here!`;
-      coreMsg = `Whether you're shopping for ${keywordList.slice(0, 2).join(', ') || 'the best products'}, this is your moment. ${storedBusinessName || 'We'} brings you unbeatable prices, exclusive offers, and fast delivery — all in one place.\n\nDon't miss out — these prices won't last!`;
-      cta = `🛒 Shop now and save big! ${objective ? `\n${objective}` : 'Visit the sale page today.'}`;
-    } else if (isFoodBev) {
-      hook = `🍽️ ${topic} — Taste the difference!`;
-      coreMsg = `At ${storedBusinessName || 'our brand'}, we believe every meal deserves the best. ${keywordList.length > 0 ? `Featuring: ${keywordList.join(', ')}.` : ''}\n\nFreshness you can taste, quality you can trust.`;
-      cta = `👉 ${objective || 'Order now and experience the flavor!'}`;
-    } else if (isHealthFit) {
-      hook = `💪 ${topic} — Your health journey starts here.`;
-      coreMsg = `Achieving your goals with ${storedBusinessName || 'us'} has never been easier. ${keywordList.length > 0 ? `Focus on: ${keywordList.join(', ')}.` : ''}\n\nReal results, real people, real transformation.`;
-      cta = `🏃 ${objective || 'Start today — your best self is waiting.'}`;
-    } else if (isTech) {
-      hook = `🚀 ${topic} — Smarter tools for a faster ${targetAudience || 'team'}.`;
-      coreMsg = `${storedBusinessName || 'Our platform'} helps you ${keywordList.length > 0 ? keywordList.join(', ') : 'work smarter, not harder'}.\n\nBuilt for ${targetAudience || 'modern teams'} who demand results.`;
-      cta = `⚡ ${objective || 'Start your free trial today.'}`;
-    } else {
-      hook = `✨ ${topic} — Something exciting is happening at ${storedBusinessName || 'our brand'}!`;
-      coreMsg = `We're bringing you ${keywordList.length > 0 ? keywordList.join(', ') : 'something truly special'}.\n\nFor ${targetAudience || 'everyone who deserves the best'} — this is for you.`;
-      cta = `👉 ${objective || 'Learn more and get started today.'}`;
-    }
+    const hook = `✨ ${topic} — ${displayBrand} has something exciting for you${industryContext ? ' ' + industryContext : ''}!`;
 
-    // Build separate hashtags from keywords — never concatenated
+    const keywordsLine = keywordList.length > 0
+      ? `\n\nFeaturing: ${keywordList.join(', ')}.`
+      : '';
+
+    const coreMsg = `At ${displayBrand}, we're committed to delivering exceptional value for ${displayAudience}.${keywordsLine}\n\nThis is our promise to you: quality you can trust, every time.`;
+
+    const cta = `👉 ${displayObj.charAt(0).toUpperCase() + displayObj.slice(1)}.`;
+
+    // Build separate hashtags from topic words + keywords + brand name
     const topicHashtags = topic
       .split(/\s+/)
       .filter(w => w.length > 2)
@@ -223,17 +226,20 @@ Structure your output as:
       .slice(0, 5)
       .map(k => `#${k.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}`);
 
-    const industryHashtags = isEcommerce
-      ? ['#OnlineShopping', '#Sale', '#ShopNow']
-      : isFoodBev
-      ? ['#FoodLovers', '#Foodie', '#TasteTheDifference']
-      : isHealthFit
-      ? ['#HealthyLiving', '#Fitness', '#Wellness']
-      : isTech
-      ? ['#TechInnovation', '#DigitalTransformation', '#AI']
-      : ['#Trending', '#MustHave', '#Discover'];
+    const brandHashtag = effectiveBrandName
+      ? [`#${effectiveBrandName.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}`]
+      : [];
 
-    const allHashtags = [...new Set([...topicHashtags, ...keywordHashtags, ...industryHashtags])].slice(0, 10);
+    const industryHashtag = industry
+      ? [`#${industry.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`]
+      : [];
+
+    const allHashtags = [...new Set([
+      ...brandHashtag,
+      ...topicHashtags,
+      ...keywordHashtags,
+      ...industryHashtag,
+    ])].filter(h => h.length > 1).slice(0, 10);
 
     const fallbackContent = `**Hook / Headline:**
 ${hook}
@@ -248,14 +254,14 @@ ${cta}
 ${allHashtags.join(' ')}`;
 
     return {
-      content: fallbackContent,
+      content:     fallbackContent,
       type,
       platform,
       topic,
-      brandName: storedBusinessName,
-      model: 'zenvora-engine-v1',
+      brandName:   effectiveBrandName,
+      model:       'zenvora-engine-v1',
       generatedAt: new Date().toISOString(),
-      note: 'Configure GEMINI_API_KEY in Render environment variables for live Gemini 1.5 Flash generation.',
+      note:        'Configure GEMINI_API_KEY in your environment variables for live Gemini generation.',
     };
   },
 
@@ -266,14 +272,14 @@ ${allHashtags.join(' ')}`;
     topic,
     targetKeyword,
     secondaryKeywords = [],
-    audience = 'Marketing Leaders',
-    tone = 'Authoritative and insightful',
-    length = 'Comprehensive (1500+ words)',
+    audience = 'General readers',
+    tone     = 'Authoritative and insightful',
+    length   = 'Comprehensive (1500+ words)',
     brandGuidelines = null,
   }) => {
     const brandVoice = brandGuidelines?.brandVoice || 'Authoritative, analytical, and actionable';
 
-    const systemPrompt = `You are ZENVORA's Senior Editorial Director and SEO Architect.
+    const systemPrompt = `You are a Senior Editorial Director and SEO Architect.
 Write an authoritative, publication-ready article optimized for Google Search and human engagement.
 Brand Voice: ${brandVoice}`;
 
@@ -297,190 +303,319 @@ Output valid JSON containing:
     if (liveResult) {
       try {
         const cleaned = liveResult.text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const parsed = JSON.parse(cleaned);
+        const parsed  = JSON.parse(cleaned);
         return { ...parsed, model: liveResult.source };
       } catch {
-        // if not pure JSON, return content with structured wrapper
         return {
-          seoTitle: `${topic} | The Complete Strategy Guide`,
-          metaDescription: `Discover how to master ${targetKeyword || topic} with proven strategies, actionable frameworks, and expert guidance.`,
+          seoTitle:        `${topic} | The Complete Guide`,
+          metaDescription: `Discover how to master ${targetKeyword || topic} with proven strategies and expert guidance.`,
           outline: [
-            { heading: '1. Executive Summary', subpoints: ['Current state of the industry', 'Key challenges'] },
-            { heading: '2. Strategic Implementation', subpoints: ['Framework overview', 'Step-by-step rollout'] },
-            { heading: '3. Measuring Impact', subpoints: ['ROI metrics', 'Continuous optimization'] },
+            { heading: `1. Understanding ${topic}`,       subpoints: ['What it means', 'Why it matters'] },
+            { heading: '2. Key Strategies',               subpoints: ['Step-by-step approach', 'Best practices'] },
+            { heading: '3. Measuring Results',            subpoints: ['Key metrics', 'Continuous improvement'] },
           ],
           faqs: [
-            { question: `Why is ${targetKeyword || topic} critical now?`, answer: 'Modern algorithmic search shifts reward comprehensive semantic depth and real-world utility.' },
+            { question: `What is ${targetKeyword || topic}?`, answer: `${targetKeyword || topic} refers to the strategies and tactics used to achieve your stated goal effectively.` },
           ],
-          content: liveResult.text,
+          content:     liveResult.text,
           readingTime: 6,
-          seoScore: 92,
-          model: liveResult.source,
+          seoScore:    92,
+          model:       liveResult.source,
         };
       }
     }
 
-    // High quality contextual fallback blog
-    const blogTitle = `${topic}: The Ultimate Guide to Sustainable Growth in 2026`;
-    const metaDesc = `Master ${targetKeyword || topic} with this comprehensive, data-backed guide. Learn frameworks, strategic execution, and how to scale marketing ROI.`;
+    // Topic-specific fallback — no hardcoded SaaS/B2B content
+    const blogTitle = `${topic}: A Complete Guide`;
+    const metaDesc  = `Learn everything about ${targetKeyword || topic} with this comprehensive guide covering key strategies and best practices.`;
+
     const outline = [
-      { heading: '1. Why Traditional Marketing Workflows Are Broken', subpoints: ['Tool fragmentation', 'The compounding cost of manual drafting'] },
-      { heading: '2. The 3-Step Framework for Sustainable Growth', subpoints: ['Centralized Brand Guidelines', 'Predictive SEO Clustering', 'Multi-Channel Autonomous Distribution'] },
-      { heading: '3. Actionable Checklist for Implementation', subpoints: ['Audit your highest-performing assets', 'Set up continuous publishing cadence'] },
-      { heading: '4. Common Pitfalls to Avoid', subpoints: ['Over-reliance on generic AI outputs', 'Ignoring audience search intent'] },
+      { heading: `1. Introduction to ${topic}`,           subpoints: ['Overview', 'Why it matters now'] },
+      { heading: '2. Core Strategies',                    subpoints: ['Step-by-step framework', 'Common approaches'] },
+      { heading: '3. Implementation',                     subpoints: ['Getting started', 'Tools and resources'] },
+      { heading: '4. Measuring Success',                  subpoints: ['Key metrics', 'Iteration and improvement'] },
     ];
 
-    const contentMarkdown = `## Introduction: The Modern Growth Paradigm
+    const contentMarkdown = `## Introduction
 
-In an increasingly saturated digital landscape, the teams that win are not the ones who create the most noise—they are the ones who build **resilient content engines**. When tackling **${targetKeyword || topic}**, your goal must be twofold: solve the immediate intent of your buyer and establish permanent organic search authority.
+**${targetKeyword || topic}** is a rapidly evolving area that demands both strategic thinking and practical execution.
 
-### 1. The Core Architecture of Modern Marketing
+Understanding the fundamentals is the first step toward achieving meaningful results.
 
-Every high-performing campaign rests on a foundation of repeatable systems. When businesses shift away from ad-hoc drafting toward an integrated automation workflow, their organic visibility accelerates exponentially.
+### Why ${topic} Matters
 
-> "True marketing leverage is not doing more things faster. It is creating assets that continue to deliver qualified pipeline long after you press publish."
+Whether you are just starting or looking to refine your approach, the principles outlined here apply across different contexts and scales.
 
-### 2. Strategic Pillars for ${targetKeyword || topic}
+Key themes to explore:
+- **${secondaryKeywords[0] || 'Strategy and planning'}**
+- **${secondaryKeywords[1] || 'Execution and measurement'}**
+- **${secondaryKeywords[2] || 'Continuous improvement'}**
 
-1. **Semantic Relevance Over Keyword Stuffing:** Modern search algorithms evaluate topical authority across entire content clusters. Target related secondary keywords: *${secondaryKeywords.join(', ') || 'organic reach, conversion acceleration, workflow efficiency'}*.
-2. **Brand-Anchored Generation:** Every output must adhere strictly to your unique brand voice and value proposition.
-3. **Omni-Channel Repurposing:** A single authoritative blog post should seamlessly feed 5 social posts, 2 email newsletters, and a multi-part carousel.
+### Getting Started
 
-### 3. Step-by-Step Execution Plan
-
-- **Phase 1: Research & Intent Mapping:** Identify the exact queries decision-makers type before making a purchase.
-- **Phase 2: Draft with Strategic Depth:** Answer objections early, provide tangible data points, and illustrate with real workflows.
-- **Phase 3: Measure, Iterate, and Compound:** Monitor engagement metrics and update your content quarterly to defend top SERP rankings.
+Begin by defining clear goals, understanding your target audience, and building a systematic approach to ${targetKeyword || topic}.
 
 ## Conclusion
 
-Mastering **${targetKeyword || topic}** is your competitive moat. Start implementing this framework today to transform marketing from an unpredictable cost center into an autonomous revenue engine.`;
+Mastering **${targetKeyword || topic}** is an ongoing journey. Start with the fundamentals, measure your progress, and iterate based on real data.`;
 
     const faqs = [
       {
-        question: `How does ${targetKeyword || topic} improve organic conversions?`,
-        answer: 'By addressing search intent directly and providing actionable solutions, you establish authority that turns casual readers into qualified leads.',
+        question: `What is the best way to approach ${targetKeyword || topic}?`,
+        answer:   `Start by understanding your audience and goals, then build a systematic strategy that you can measure and refine over time.`,
       },
       {
-        question: 'How often should this strategy be reviewed?',
-        answer: 'We recommend reviewing core metrics monthly and conducting deep topical audits every quarter.',
-      },
-      {
-        question: 'Can this framework scale across multiple locations or client brands?',
-        answer: 'Yes, by maintaining isolated brand guideline profiles, multi-location brands and agencies can replicate these results without cross-contamination.',
+        question: 'How long does it take to see results?',
+        answer:   'Results vary depending on your starting point, resources, and consistency. Most approaches begin showing measurable results within 30-90 days.',
       },
     ];
 
     return {
-      seoTitle: `${blogTitle.slice(0, 58)}`,
+      seoTitle:        blogTitle.slice(0, 58),
       metaDescription: metaDesc.slice(0, 155),
       outline,
       faqs,
-      content: contentMarkdown,
-      readingTime: 6,
-      seoScore: 93,
-      model: 'zenvora-engine-v1',
-      generatedAt: new Date().toISOString(),
+      content:         contentMarkdown,
+      readingTime:     5,
+      seoScore:        88,
+      model:           'zenvora-engine-v1',
+      generatedAt:     new Date().toISOString(),
     };
   },
 
   /**
-   * Quick Social Caption Generator
+   * Social Caption Generator — brand-aware, platform-specific, topic-driven
    */
-  generateSocialCaptions: async ({ platform, topic, tone, count = 3 }) => {
-    const prompt = `Write ${count} distinct, engaging ${platform} captions about: "${topic}".
-Tone: ${tone}.
-Rules:
-- Each caption must be 100% about "${topic}" — no unrelated marketing jargon
-- Include relevant emojis and appropriate hashtags for ${platform}
-- Each hashtag must be a SEPARATE token (never merge multiple words into one hashtag)
-- If the topic is a sale or product, make the caption feel like a consumer-facing promotion
-- Separate captions with a blank line`;
+  generateSocialCaptions: async ({
+    platform       = 'Instagram',
+    topic,
+    tone           = 'Engaging',
+    count          = 5,
+    brandName      = '',
+    industry       = '',
+    targetAudience = '',
+    keywords       = '',
+  }) => {
+    const brandLine    = brandName    ? `Brand: ${brandName}` : '';
+    const industryLine = industry     ? `Industry: ${industry}` : '';
+    const audienceLine = targetAudience ? `Target Audience: ${targetAudience}` : '';
+    const kwLine       = keywords     ? `Keywords to include: ${keywords}` : '';
 
-    const live = await GeminiService.callGemini(prompt);
+    const systemPrompt = `You are an expert social media copywriter. Write captions that are specific, engaging, and relevant to the given topic, brand, and platform.
+RULES: Every caption must relate to the exact topic provided. Never use generic marketing phrases unrelated to the topic.`;
+
+    const prompt = `Write ${count} distinct ${platform} captions about: "${topic}".
+${brandLine}
+${industryLine}
+${audienceLine}
+${kwLine}
+Tone: ${tone}
+
+Requirements:
+- Each caption must have a different angle/style (e.g., question, story, fact, tip, promotional)
+- Include relevant emojis
+- Include relevant hashtags at the end of each caption (3-5 hashtags, each a separate token)
+- Captions must be appropriate for ${platform} length and style
+- Each caption must clearly be about "${topic}"
+
+Format each caption as:
+**Caption [number] — [Style/Angle]:**
+[caption text with emojis]
+
+[hashtags]
+---`;
+
+    const live = await GeminiService.callGemini(prompt, systemPrompt);
+
     if (live) {
-      return { captions: live.text.split('\n\n').filter(Boolean), model: live.source };
+      // Parse into structured array
+      const rawText = live.text;
+      const sections = rawText.split(/---+/).filter(s => s.trim().length > 20);
+
+      if (sections.length >= 2) {
+        const captions = sections.slice(0, count).map((section, i) => {
+          const lines = section.trim().split('\n').filter(Boolean);
+          const styleMatch = lines[0]?.match(/Caption\s*\d+\s*[—–-]\s*(.+)/i);
+          const style = styleMatch ? styleMatch[1].replace(/\*\*/g, '').trim() : `Variation ${i + 1}`;
+          const tagLine = lines.find(l => l.includes('#')) || '';
+          const textLines = lines.filter(l => !l.startsWith('**Caption') && !l.startsWith('#') && l.trim().length > 0);
+          return {
+            id:    i + 1,
+            style,
+            text:  textLines.join('\n').trim(),
+            tags:  tagLine.trim(),
+          };
+        });
+        return { captions, model: live.source };
+      }
+
+      // Simpler parse if format differs
+      const chunks = rawText.split(/\n{2,}/).filter(c => c.trim().length > 20).slice(0, count);
+      return {
+        captions: chunks.map((c, i) => ({
+          id:    i + 1,
+          style: `Variation ${i + 1}`,
+          text:  c.replace(/#\S+/g, '').trim(),
+          tags:  (c.match(/#\S+/g) || []).join(' '),
+        })),
+        model: live.source,
+      };
     }
 
-    // Topic-aware fallback captions — always about the actual topic
-    const topicClean = topic.trim();
-    const isEcomm = /sale|shop|deal|discount|buy|offer|launch|product/i.test(topicClean);
-    const isTech  = /app|software|platform|tech|ai|digital|tool/i.test(topicClean);
-
-    let c1, c2, c3;
-    if (isEcomm) {
-      c1 = `🛍️ ${topicClean} is LIVE!\n\nDon't miss these incredible deals — prices this low won't last. Grab yours before they're gone!\n\n#Sale #ShopNow #BestDeals #LimitedOffer #OnlineShopping`;
-      c2 = `✨ The wait is over — ${topicClean} has arrived!\n\nFrom top brands to everyday essentials, find everything you need at prices you'll love. Shop now! 🛒\n\n#Shopping #Deals #Sale #MustHave #Trending`;
-      c3 = `⏰ HURRY! ${topicClean} ends soon!\n\nBig savings, top brands, fast delivery. What are you waiting for? Click the link and start saving! 💰\n\n#FlashSale #LimitedTime #ShopNow #Discount #BigSavings`;
-    } else if (isTech) {
-      c1 = `🚀 Introducing ${topicClean}!\n\nThe smarter, faster way to work. Try it today and see the difference.\n\n#Tech #Innovation #ProductLaunch #NewRelease`;
-      c2 = `⚡ ${topicClean} — built for people who mean business.\n\nSimpler. Faster. Better. See what all the buzz is about.\n\n#TechNews #NewFeature #Innovation #MustTry`;
-      c3 = `💡 ${topicClean} is changing the game.\n\nJoin thousands of users who've already made the switch. Your productivity will thank you.\n\n#Technology #ProductUpdate #GameChanger #TryNow`;
-    } else {
-      c1 = `✨ ${topicClean} — you don't want to miss this!\n\nSomething exciting is here and it's meant for you. Tap to find out more 👇\n\n#MustSee #Trending #CheckItOut #Exciting`;
-      c2 = `📢 Big news: ${topicClean} is here!\n\nWe've been working hard to bring you something truly special. Here's your first look.\n\n#NewAnnouncement #Trending #Discover #BrandNews`;
-      c3 = `💫 ${topicClean} — made with you in mind.\n\nThis is the moment you've been waiting for. Don't let it pass you by!\n\n#NewRelease #Trending #MustHave #ExcitingNews`;
-    }
+    // Topic-specific fallback
+    const brand    = brandName || 'Our Brand';
+    const cleanT   = topic.replace(/\s+/g, '');
+    const cleanB   = (brandName || '').replace(/\s+/g, '');
+    const kws      = keywords ? keywords.split(',').map(k => `#${k.trim().replace(/\s+/g, '')}`).join(' ') : '';
 
     return {
-      captions: [c1, c2, c3].slice(0, count),
+      captions: [
+        {
+          id: 1, style: 'The Hook',
+          text: `🎯 ${topic} — here's what you need to know.\n\n${brand} is leading the way in ${industry || 'this space'} and we're here to share our insights.\n\nSave this for later! 📌`,
+          tags: `#${cleanT} ${cleanB ? '#' + cleanB : ''} ${kws}`.trim(),
+        },
+        {
+          id: 2, style: 'The Story',
+          text: `✨ ${topic} has changed everything for ${brand}.\n\nHere's our experience and what we learned along the way. The results surprised even us.\n\nSwipe to see the full story 👉`,
+          tags: `#${cleanT} #BehindTheScenes ${kws}`.trim(),
+        },
+        {
+          id: 3, style: 'The Question',
+          text: `🤔 What do you think about ${topic}?\n\nAt ${brand}, we believe ${targetAudience || 'our community'} deserves the best — and we want to hear from you.\n\nDrop your thoughts below 👇`,
+          tags: `#${cleanT} #Discussion #Community ${kws}`.trim(),
+        },
+        {
+          id: 4, style: 'The Tip',
+          text: `💡 Pro tip about ${topic}:\n\nMost people overlook this, but ${brand} has discovered that the key is consistency + the right strategy.\n\nSave this post for your next campaign! ⚡`,
+          tags: `#${cleanT} #Tips #ProTips ${kws}`.trim(),
+        },
+        {
+          id: 5, style: 'The CTA',
+          text: `🚀 Ready to experience ${topic} like never before?\n\n${brand} has everything you need for ${targetAudience || 'your goals'}. Don't wait — the opportunity is now.\n\n👉 Link in bio for more!`,
+          tags: `#${cleanT} #CallToAction ${cleanB ? '#' + cleanB : ''} ${kws}`.trim(),
+        },
+      ],
       model: 'zenvora-engine-v1',
     };
   },
 
   /**
-   * Trending & Niche Hashtag Generator
+   * Hashtag Generator — topic, platform, brand, industry aware
    */
-  generateHashtags: async ({ niche, platform = 'Instagram' }) => {
-    const prompt = `Generate 25 high-performing ${platform} hashtags specifically for: "${niche}".
+  generateHashtags: async ({
+    niche,
+    platform  = 'Instagram',
+    industry  = '',
+    brandName = '',
+    count     = 25,
+  }) => {
+    const systemPrompt = `You are a hashtag strategy expert. Generate relevant, effective hashtags for social media.
+RULES: Every hashtag must be relevant to the specific niche/topic provided. Each hashtag is a separate #token.
+Never combine unrelated words into one hashtag. Avoid generic hashtags unrelated to the topic.`;
+
+    const prompt = `Generate ${count} high-performing ${platform} hashtags for:
+Topic / Niche: "${niche}"
+${industry ? `Industry: ${industry}` : ''}
+${brandName ? `Brand: ${brandName}` : ''}
+Platform: ${platform}
+
+Group them into 4 tiers:
+
+**Tier 1 — Broad Reach (6 tags):**
+[High-volume hashtags for general discoverability in this topic area]
+
+**Tier 2 — Niche Authority (6 tags):**
+[Specific to the topic, lower competition, higher engagement]
+
+**Tier 3 — High-Conversion Intent (6 tags):**
+[Used by people actively searching for this topic/product/service]
+
+**Tier 4 — Community & Ecosystem (5-7 tags):**
+[Community-specific hashtags, peer groups, related movements]
+
 Rules:
-- Each hashtag must be a SEPARATE token (e.g. #FlipkartSale #BigDiscount — never #FlipkartSaleBigDiscount)
-- Group into: High Reach (Broad), Mid-Tier (Niche), Targeted (High-Intent)
-- Match the actual topic — if it is a sale/e-commerce topic, generate shopping hashtags, not B2B hashtags
-- Never generate generic B2B, SaaS, or marketing-automation hashtags for a consumer/e-commerce niche`;
+- Every hashtag must relate to "${niche}" or "${industry || 'the topic'}"
+- Each is a SEPARATE #token (no spaces inside a hashtag)
+- No duplicate hashtags across tiers`;
 
-    const live = await GeminiService.callGemini(prompt);
+    const live = await GeminiService.callGemini(prompt, systemPrompt);
+
     if (live) {
-      return { hashtags: live.text, model: live.source };
+      // Try to parse into clusters
+      const text = live.text;
+      const parseSection = (label) => {
+        const regex = new RegExp(`Tier\\s*\\d+[^\\n]*${label}[^\\n]*\\n([\\s\\S]*?)(?=\\*\\*Tier|$)`, 'i');
+        const match = text.match(regex);
+        if (!match) return [];
+        return (match[1].match(/#\S+/g) || []).slice(0, 8);
+      };
+
+      const broad     = parseSection('Broad');
+      const niche_    = parseSection('Niche');
+      const intent    = parseSection('Intent');
+      const community = parseSection('Community');
+
+      if (broad.length > 0 || niche_.length > 0) {
+        return {
+          broad,
+          niche:     niche_,
+          intent,
+          community,
+          raw:   text,
+          model: live.source,
+        };
+      }
+
+      // If structured parse fails, return all tags flat
+      const allTags = text.match(/#\S+/g) || [];
+      const quarter = Math.ceil(allTags.length / 4);
+      return {
+        broad:     allTags.slice(0, quarter),
+        niche:     allTags.slice(quarter, quarter * 2),
+        intent:    allTags.slice(quarter * 2, quarter * 3),
+        community: allTags.slice(quarter * 3),
+        raw:       text,
+        model:     live.source,
+      };
     }
 
-    // Topic-aware fallback — derive hashtags from the niche directly
-    const words = niche.trim().split(/\s+/);
-    const capitalise = (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    const cleanWord  = (w) => w.replace(/[^a-zA-Z0-9]/g, '');
-
-    // High reach: individual clean words as separate hashtags
-    const highReach = words
-      .filter(w => cleanWord(w).length > 2)
-      .slice(0, 4)
-      .map(w => `#${capitalise(cleanWord(w))}`);
-
-    // Mid-tier: 2-word combos from adjacent words
-    const midTier = [];
-    for (let i = 0; i < Math.min(words.length - 1, 3); i++) {
-      const combo = `${capitalise(cleanWord(words[i]))}${capitalise(cleanWord(words[i + 1]))}`;
-      if (combo.length > 4) midTier.push(`#${combo}`);
-    }
-    // Pad with generic-but-relevant tags
-    const isEcomm = /sale|shop|deal|discount|buy|store/i.test(niche);
-    if (isEcomm) {
-      midTier.push('#OnlineShopping', '#Sale', '#ShopNow');
-    } else {
-      midTier.push('#Trending', '#MustSee', '#Discover');
-    }
-
-    // Targeted: brand-name or long-form hashtags
-    const fullNicheTag = `#${words.map(cleanWord).map(capitalise).join('')}`;
-    const targeted = [
-      fullNicheTag,
-      `#${capitalise(cleanWord(words[0]))}Deals`,
-      isEcomm ? '#BestPrice' : '#LearnMore',
-    ];
+    // Topic-specific fallback
+    const clean = niche.replace(/[^a-zA-Z0-9]/g, '');
+    const cleanInd = (industry || '').replace(/[^a-zA-Z0-9]/g, '');
+    const cleanBrand = (brandName || '').replace(/[^a-zA-Z0-9]/g, '');
 
     return {
-      highReach,
-      midTier: midTier.slice(0, 6),
-      targeted,
+      broad: [
+        `#${clean}`,
+        cleanInd ? `#${cleanInd}` : '#Marketing',
+        `#${clean}Tips`,
+        '#DigitalMarketing',
+        '#SocialMedia',
+        '#ContentMarketing',
+      ].filter(Boolean),
+      niche: [
+        `#${clean}Community`,
+        `#${clean}Strategy`,
+        `#Best${clean}`,
+        cleanInd ? `#${cleanInd}Marketing` : '#NicheMarketing',
+        '#BrandGrowth',
+        '#ContentStrategy',
+      ].filter(Boolean),
+      intent: [
+        `#${clean}ForBusiness`,
+        `#${clean}Results`,
+        cleanBrand ? `#${cleanBrand}` : `#${clean}Brand`,
+        '#GetStarted',
+        '#LearnMore',
+      ].filter(Boolean),
+      community: [
+        '#MarketingCommunity',
+        '#CreativeBusiness',
+        `#${clean}Lovers`,
+        cleanInd ? `#${cleanInd}Community` : '#Community',
+        '#GrowthMindset',
+      ].filter(Boolean),
       model: 'zenvora-engine-v1',
     };
   },
