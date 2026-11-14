@@ -41,38 +41,39 @@ const INDUSTRY_LABELS = {
   '__custom__': 'Custom (type below)',
 };
 
+const selectClass = 'w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-brand-violet';
+const inputClass  = 'w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet';
+
 export const ContentStudioPage = () => {
-  // FRESH empty state — no pre-filled content
-  const [formData, setFormData] = useState({
-    brandName:      '',
-    industry:       '',
-    customIndustry: '',
-    topic:          '',
-    platform:       'LinkedIn',
-    type:           'Social Post',
-    targetAudience: '',
-    tone:           'Professional',
-    language:       'English',
-    keywords:       '',
-    objective:      '',
-    length:         'Medium (100-250 words)',
-  });
+  // Independent controlled state variables for clean, lag-free input handling
+  const [brandName, setBrandName]           = useState('');
+  const [industry, setIndustry]             = useState('');
+  const [customIndustry, setCustomIndustry] = useState('');
+  const [topic, setTopic]                   = useState('');
+  const [platform, setPlatform]             = useState('LinkedIn');
+  const [type, setType]                     = useState('Social Post');
+  const [targetAudience, setTargetAudience] = useState('');
+  const [tone, setTone]                     = useState('Professional');
+  const [language, setLanguage]             = useState('English');
+  const [keywords, setKeywords]             = useState('');
+  const [objective, setObjective]           = useState('');
+  const [length, setLength]                 = useState('Medium (100-250 words)');
 
-  const [loading, setLoading]         = useState(false);
-  const [output, setOutput]           = useState(null);       // null = no generation yet
-  const [error, setError]             = useState(null);
-  const [copied, setCopied]           = useState(false);
-  const [savedSuccess, setSavedSuccess] = useState(false);
-  const [isEditing, setIsEditing]     = useState(false);
-  const [editedContent, setEditedContent] = useState('');
+  const [loading, setLoading]               = useState(false);
+  const [output, setOutput]                 = useState(null);       // null = no generation yet
+  const [error, setError]                   = useState(null);
+  const [copied, setCopied]                 = useState(false);
+  const [savedSuccess, setSavedSuccess]     = useState(false);
+  const [isEditing, setIsEditing]           = useState(false);
+  const [editedContent, setEditedContent]   = useState('');
 
-  const resolvedIndustry = formData.industry === '__custom__'
-    ? formData.customIndustry.trim()
-    : formData.industry;
+  const resolvedIndustry = industry === '__custom__'
+    ? customIndustry.trim()
+    : industry;
 
   const handleGenerate = async (e) => {
     e?.preventDefault();
-    if (!formData.topic.trim()) {
+    if (!topic.trim()) {
       setError('Please enter a topic or subject to generate content.');
       return;
     }
@@ -81,12 +82,18 @@ export const ContentStudioPage = () => {
     setIsEditing(false);
 
     try {
-      // Send all context fields including brandName and resolved industry
       const res = await api.generateContent({
-        ...formData,
+        brandName: brandName.trim(),
         industry: resolvedIndustry || 'General',
-        // Remove customIndustry from the payload (backend doesn't need it)
-        customIndustry: undefined,
+        topic: topic.trim(),
+        platform,
+        type,
+        targetAudience: targetAudience.trim(),
+        tone,
+        language,
+        keywords: keywords.trim(),
+        objective: objective.trim(),
+        length,
       });
       setOutput(res);
       setEditedContent(res.content || res?.data?.content || '');
@@ -111,10 +118,10 @@ export const ContentStudioPage = () => {
     if (!content) return;
     try {
       await api.createPost({
-        title:    `${formData.type}: ${formData.topic.slice(0, 50)}`,
+        title:    `${type}: ${topic.slice(0, 50)}`,
         content,
-        type:     formData.type,
-        platform: formData.platform,
+        type,
+        platform,
         status:   'Draft',
       });
       setSavedSuccess(true);
@@ -127,7 +134,7 @@ export const ContentStudioPage = () => {
   const handleDownload = () => {
     const content = isEditing ? editedContent : (output?.content || output?.data?.content);
     if (!content) return;
-    const filename = `${formData.topic.slice(0, 30).replace(/\s+/g, '_')}_${Date.now()}.txt`;
+    const filename = `${topic.slice(0, 30).replace(/\s+/g, '_')}_${Date.now()}.txt`;
     const blob = new Blob([content], { type: 'text/plain' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -136,16 +143,6 @@ export const ContentStudioPage = () => {
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const field = (label, children) => (
-    <div className="space-y-1">
-      <label className="text-xs font-bold text-slate-700">{label}</label>
-      {children}
-    </div>
-  );
-
-  const selectClass = 'w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-brand-violet';
-  const inputClass  = 'w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet';
 
   const outputContent = isEditing ? editedContent : (output?.content || output?.data?.content);
   const outputModel   = output?.model || output?.data?.model;
@@ -180,139 +177,150 @@ export const ContentStudioPage = () => {
           <form onSubmit={handleGenerate} className="space-y-4">
 
             {/* Brand Name */}
-            {field('Brand Name',
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Brand Name</label>
               <input
                 type="text"
-                value={formData.brandName}
-                onChange={e => setFormData({ ...formData, brandName: e.target.value })}
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
                 placeholder="e.g. Flipkart, Zomato, Nike, Zenvora AI"
                 className={inputClass}
               />
-            )}
+            </div>
 
             {/* Industry */}
-            {field('Industry',
-              <>
-                <select
-                  value={formData.industry}
-                  onChange={e => setFormData({ ...formData, industry: e.target.value })}
-                  className={selectClass}
-                >
-                  {INDUSTRIES.map(ind => (
-                    <option key={ind} value={ind}>{INDUSTRY_LABELS[ind] ?? ind}</option>
-                  ))}
-                </select>
-                {formData.industry === '__custom__' && (
-                  <input
-                    type="text"
-                    value={formData.customIndustry}
-                    onChange={e => setFormData({ ...formData, customIndustry: e.target.value })}
-                    placeholder="Enter your industry"
-                    className={`${inputClass} mt-2`}
-                  />
-                )}
-              </>
-            )}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Industry</label>
+              <select
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+                className={selectClass}
+              >
+                {INDUSTRIES.map((ind) => (
+                  <option key={ind} value={ind}>{INDUSTRY_LABELS[ind] ?? ind}</option>
+                ))}
+              </select>
+              {industry === '__custom__' && (
+                <input
+                  type="text"
+                  value={customIndustry}
+                  onChange={(e) => setCustomIndustry(e.target.value)}
+                  placeholder="Enter your industry"
+                  className={`${inputClass} mt-2`}
+                />
+              )}
+            </div>
 
-            {/* Topic */}
-            {field('Topic / Subject *',
-              <input
-                type="text"
+            {/* Campaign Topic / Subject — Textarea for continuous sentences and multi-paragraph typing */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">
+                Campaign Topic / Subject <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={3}
                 required
-                value={formData.topic}
-                onChange={e => setFormData({ ...formData, topic: e.target.value })}
-                placeholder="e.g. Big Shopping Sale, New Smartphone Launch, Health Awareness..."
-                className={inputClass}
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="e.g. Create a Diwali promotional campaign for Flipkart with attractive festive offers."
+                className={`${inputClass} resize-y leading-relaxed`}
               />
-            )}
+            </div>
 
             {/* Platform & Type */}
             <div className="grid grid-cols-2 gap-3">
-              {field('Platform',
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Platform</label>
                 <select
-                  value={formData.platform}
-                  onChange={e => setFormData({ ...formData, platform: e.target.value })}
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
                   className={selectClass}
                 >
-                  {PLATFORMS.map(p => <option key={p}>{p}</option>)}
+                  {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
-              )}
-              {field('Content Type',
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Content Type</label>
                 <select
-                  value={formData.type}
-                  onChange={e => setFormData({ ...formData, type: e.target.value })}
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
                   className={selectClass}
                 >
-                  {CONTENT_TYPES.map(t => <option key={t}>{t}</option>)}
+                  {CONTENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
-              )}
+              </div>
             </div>
 
             {/* Target Audience */}
-            {field('Target Audience',
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Target Audience</label>
               <input
                 type="text"
-                value={formData.targetAudience}
-                onChange={e => setFormData({ ...formData, targetAudience: e.target.value })}
+                value={targetAudience}
+                onChange={(e) => setTargetAudience(e.target.value)}
                 placeholder="e.g. Online shoppers aged 18-35, Health-conscious adults"
                 className={inputClass}
               />
-            )}
+            </div>
 
             {/* Tone & Language */}
             <div className="grid grid-cols-2 gap-3">
-              {field('Tone',
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Tone</label>
                 <select
-                  value={formData.tone}
-                  onChange={e => setFormData({ ...formData, tone: e.target.value })}
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value)}
                   className={selectClass}
                 >
-                  {TONES.map(t => <option key={t}>{t}</option>)}
+                  {TONES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
-              )}
-              {field('Language',
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Language</label>
                 <select
-                  value={formData.language}
-                  onChange={e => setFormData({ ...formData, language: e.target.value })}
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
                   className={selectClass}
                 >
-                  {LANGUAGES.map(l => <option key={l}>{l}</option>)}
+                  {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
-              )}
+              </div>
             </div>
 
             {/* Keywords */}
-            {field('Keywords (comma separated)',
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Keywords (comma separated)</label>
               <input
                 type="text"
-                value={formData.keywords}
-                onChange={e => setFormData({ ...formData, keywords: e.target.value })}
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
                 placeholder="e.g. sale, electronics, discount, fashion"
                 className={inputClass}
               />
-            )}
+            </div>
 
             {/* Campaign Objective */}
-            {field('Campaign Objective',
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Campaign Objective</label>
               <input
                 type="text"
-                value={formData.objective}
-                onChange={e => setFormData({ ...formData, objective: e.target.value })}
+                value={objective}
+                onChange={(e) => setObjective(e.target.value)}
                 placeholder="e.g. Drive sales, Increase awareness, Get sign-ups"
                 className={inputClass}
               />
-            )}
+            </div>
 
             {/* Length */}
-            {field('Length',
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Length</label>
               <select
-                value={formData.length}
-                onChange={e => setFormData({ ...formData, length: e.target.value })}
+                value={length}
+                onChange={(e) => setLength(e.target.value)}
                 className={selectClass}
               >
-                {LENGTHS.map(l => <option key={l}>{l}</option>)}
+                {LENGTHS.map((l) => <option key={l} value={l}>{l}</option>)}
               </select>
-            )}
+            </div>
 
             <div className="flex gap-2 pt-1">
               <Button
@@ -322,10 +330,17 @@ export const ContentStudioPage = () => {
                 disabled={loading}
                 className="flex-1 font-bold shadow-md shadow-brand-violet/25"
               >
-                {loading
-                  ? <><RefreshCw size={14} className="animate-spin" /><span>Generating...</span></>
-                  : <><Sparkles size={14} className="text-brand-teal" /><span>Generate Content</span></>
-                }
+                {loading ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} className="text-brand-teal" />
+                    <span>Generate Content</span>
+                  </>
+                )}
               </Button>
               {output && !loading && (
                 <Button
@@ -398,8 +413,8 @@ export const ContentStudioPage = () => {
               <div className="h-full flex flex-col items-center justify-center gap-3 py-16">
                 <RefreshCw size={28} className="animate-spin text-brand-violet" />
                 <p className="text-xs text-slate-500">
-                  Generating with AI — building fresh content for &ldquo;{formData.topic}&rdquo;
-                  {formData.brandName ? ` for ${formData.brandName}` : ''}
+                  Generating with AI — building fresh content for &ldquo;{topic}&rdquo;
+                  {brandName ? ` for ${brandName}` : ''}
                 </p>
               </div>
             ) : outputContent ? (

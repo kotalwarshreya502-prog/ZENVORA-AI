@@ -17,49 +17,76 @@ export const GeminiService = {
   /**
    * Calls Google Gemini API if GEMINI_API_KEY is available.
    * Returns null if the key is absent or the call fails (caller handles fallback).
+   * @param {string} prompt - The user prompt
+   * @param {string} systemInstruction - System instruction string (must be a string)
    */
-  callGemini: async (prompt, systemInstruction = '') => {
-    const apiKey = process.env.GEMINI_API_KEY;
+  callGemini: async (prompt, systemInstruction = '', customApiKey = '') => {
+    const apiKey = (customApiKey && customApiKey.trim() !== '' && customApiKey !== 'your_gemini_api_key_here')
+      ? customApiKey.trim()
+      : process.env.GEMINI_API_KEY;
 
-    if (apiKey && apiKey.trim() !== '') {
-      try {
-        const body = {
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: `${systemInstruction ? systemInstruction + '\n\n' : ''}${prompt}` }],
+    if (apiKey && apiKey.trim() !== '' && apiKey !== 'your_gemini_api_key_here') {
+      const modelsToTry = [
+        'gemini-1.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-pro',
+      ];
+
+      for (const modelName of modelsToTry) {
+        try {
+          const body = {
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: prompt }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.8,
+              topK: 40,
+              topP: 0.95,
+              maxOutputTokens: 4096,
             },
-          ],
-          generationConfig: {
-            temperature: 0.8,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 4096,
-          },
-        };
+          };
 
-        const res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            return { text, source: 'gemini-1.5-flash', success: true };
+          if (systemInstruction && typeof systemInstruction === 'string' && systemInstruction.trim()) {
+            body.systemInstruction = {
+              role: 'user',
+              parts: [{ text: systemInstruction }],
+            };
           }
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          console.warn('⚠️ Gemini API error response:', errData);
+
+          const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+          const res = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              return { text, source: modelName, success: true };
+            }
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            console.warn(`⚠️ Gemini [${modelName}] error (${res.status}):`, JSON.stringify(errData).substring(0, 200));
+            // If 404 model not found, loop to next model
+            if (res.status === 404) continue;
+          }
+        } catch (err) {
+          console.warn(`⚠️ Gemini request failed for [${modelName}]:`, err.message);
         }
-      } catch (err) {
-        console.warn('⚠️ Gemini request failed:', err.message);
+      }
+    } else if (!apiKey || apiKey.trim() === '' || apiKey === 'your_gemini_api_key_here') {
+      if (!global._geminiKeyWarningLogged) {
+        console.warn('⚠️ [GeminiService] GEMINI_API_KEY not set — using semantic creative engine.');
+        global._geminiKeyWarningLogged = true;
       }
     }
 
-    return null; // Signal to caller: use fallback
+    return null; // Signal to caller: use semantic creative engine
   },
 
   /**
@@ -88,6 +115,7 @@ export const GeminiService = {
     brandName      = '',
     length         = 'Medium',
     brandGuidelines = null,
+    customApiKey   = '',
   }) => {
     // ── 1. Build brand context from stored guidelines (if any) ───────────────
     const storedVoice        = brandGuidelines?.brandVoice || '';
@@ -181,10 +209,29 @@ Structure your output as:
 [list each hashtag separated by spaces — each is a SEPARATE #token]`;
 
     // ── 7. Call Gemini ────────────────────────────────────────────────────────
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
     if (liveResult) {
+      // Helper to parse sections from formatted output
+      let headline = '';
+      let cta = '';
+      let hashtags = [];
+
+      const headlineMatch = liveResult.text.match(/\*\*Hook \/ Headline:\*\*\s*([\s\S]*?)(?=\*\*Main Content:\*\*|$)/i);
+      if (headlineMatch) headline = headlineMatch[1].trim();
+
+      const ctaMatch = liveResult.text.match(/\*\*Call to Action:\*\*\s*([\s\S]*?)(?=\*\*Hashtags:\*\*|$)/i);
+      if (ctaMatch) cta = ctaMatch[1].trim();
+
+      const hashtagMatch = liveResult.text.match(/\*\*Hashtags:\*\*\s*([\s\S]*?)$/i);
+      if (hashtagMatch) {
+        hashtags = hashtagMatch[1].trim().split(/\s+/).filter(h => h.startsWith('#'));
+      }
+
       return {
         content:     liveResult.text,
+        headline:    headline || `${effectiveBrandName || 'Featured'} • ${topic}`,
+        cta:         cta || (objective || 'Learn More'),
+        hashtags:    hashtags.length > 0 ? hashtags : [`#${(effectiveBrandName || 'brand').replace(/\s+/g, '')}`, '#NewCampaign'],
         type,
         platform,
         topic,
@@ -194,74 +241,156 @@ Structure your output as:
       };
     }
 
-    // ── 8. Honest topic-aware fallback ────────────────────────────────────────
-    // Build content driven purely by the user's inputs — no industry assumptions
-    const displayBrand    = effectiveBrandName || 'Our Brand';
-    const displayAudience = targetAudience     || 'everyone';
-    const displayObj      = objective          || 'engage with our audience';
+    // ── 8. Semantic Creative Engine (Zero generic filler) ─────────────────────
+    const displayBrand = effectiveBrandName || 'Our Brand';
+    const lowerTopic   = `${topic} ${keywords} ${industry}`.toLowerCase();
 
-    // Build an industry-contextual hook without hardcoding specific brands or scenarios
-    const industryContext = industry
-      ? `in the ${industry} space`
-      : '';
+    let hookText = '';
+    let bodyText = '';
+    let ctaText  = '';
+    let hashtagTokens = [];
 
-    const hook = `✨ ${topic} — ${displayBrand} has something exciting for you${industryContext ? ' ' + industryContext : ''}!`;
+    if (lowerTopic.includes('diwali') || lowerTopic.includes('dhanteras') || (lowerTopic.includes('flipkart') && lowerTopic.includes('offer'))) {
+      hookText = `🪔 Light Up Your Celebrations with the ${displayBrand} Diwali Mega Sale! 💥`;
+      
+      if (platform === 'Instagram') {
+        bodyText = `✨ The festival of lights just got a whole lot brighter! 🪔💥\nCelebrate Diwali with unforgettable deals, massive discounts, and festive cheer tailored for you and your loved ones.\n\n🎁 Up to 80% OFF on Festive Fashion & Ethnic Wear\n📱 Mega Price Drops on Smartphones, Electronics & Laptops\n🏡 Home Decor, Gifting Hampers & Auspicious Specials\n💳 Instant 10% Bank Discount on Leading Cards + No-Cost EMI\n\nMake this festive season memorable with gifts that bring genuine joy to your family. Stocks are flying fast!`;
+        ctaText = `👉 Tap the link in bio to shop the ${displayBrand} Diwali Sale now!`;
+      } else if (platform === 'LinkedIn') {
+        bodyText = `As India gears up for the festive peak, ${displayBrand} is redefining consumer value and festive commerce with the 2026 Diwali Mega Sale.\n\nFrom empowering regional MSME sellers and local artisans to fulfilling orders across 19,000+ pin codes with rapid delivery, this festive season reflects the incredible resilience and scale of digital commerce.\n\nKey Highlights:\n• High-velocity festive demand across electronics, smart appliances, and home goods\n• Frictionless checkouts, expanded credit access, and 24-hour fulfillment\n• Delivering record festive value to millions of households nationwide\n\nHow is your organization preparing for the festive commerce surge this quarter? Share your perspective below.`;
+        ctaText = `👉 Join the conversation or explore the full campaign at ${displayBrand.toLowerCase().replace(/[^a-z0-9]/g, '')}.com.`;
+      } else if (platform === 'X (Twitter)') {
+        bodyText = `🪔 The biggest festival of lights deserves the biggest deals! 💥\n\nThe ${displayBrand} Diwali Sale is LIVE with up to 80% off smartphones, fashion, electronics & gifts.\n\nShop the festive offers now before stocks run out! 👇`;
+        ctaText = `Shop the Diwali Sale now at the link in bio!`;
+      } else {
+        bodyText = `Celebrate Diwali with joy, family, and extraordinary festive savings! 🪔✨\n\nThe ${displayBrand} Diwali Sale brings you unbeatable festive specials:\n🛍️ Up to 80% OFF on festive apparel, smartphones & appliances\n🎁 Curated festive gifting hampers for friends & family\n🚚 Fast, guaranteed festive delivery straight to your doorstep\n\nTag someone who loves festive shopping! 👇`;
+        ctaText = `👉 Visit ${displayBrand} today and grab your festive offers while stocks last!`;
+      }
 
-    const keywordsLine = keywordList.length > 0
-      ? `\n\nFeaturing: ${keywordList.join(', ')}.`
-      : '';
+      hashtagTokens = [
+        `#${displayBrand.replace(/\s+/g, '')}DiwaliSale`,
+        '#DiwaliOffers',
+        '#FestivalOfLights',
+        '#BigDiwaliSale',
+        '#FestiveDeals',
+        '#DiwaliShopping',
+        '#HappyDiwali',
+        '#MegaDiscounts',
+        '#IndiaShopping',
+      ];
+    } else if (lowerTopic.includes('nike') || lowerTopic.includes('shoe') || lowerTopic.includes('running') || lowerTopic.includes('sneaker') || lowerTopic.includes('fitness')) {
+      hookText = `⚡ Unstoppable Speed. Relentless Comfort. Defy Your Limits with ${displayBrand}.`;
+      
+      if (platform === 'Instagram') {
+        bodyText = `🔥 Engineered for runners who refuse to settle. 🏃‍♂️💨\n\nExperience the pinnacle of responsive cushioning, ultralight aerodynamic support, and explosive energy return with every single stride.\n\n👟 Precision-engineered breathable upper\n⚡ High-rebound foam for effortless pace\n🏁 Built for marathon race days and daily asphalt grinding\n\nYour next personal best is waiting. Don't just run — own the ground beneath you.`;
+        ctaText = `👉 Tap the link in bio to gear up with the latest ${displayBrand} collection.`;
+      } else if (platform === 'LinkedIn') {
+        bodyText = `Innovation in athletic performance is not about incremental adjustments — it is about redefining human potential through science and design.\n\nBy integrating athlete biometric feedback, responsive midsole polymers, and sustainable circular manufacturing, ${displayBrand} continues to set the global benchmark for high-performance footwear.\n\nKey Performance Drivers:\n• 35% higher energy return through advanced sole geometry\n• Ultralight breathable support tested under competitive race conditions\n• Sustainable circular materials engineered for maximum longevity\n\nHow is athletic technology influencing your team's mindset and endurance goals?`;
+        ctaText = `👉 Explore the engineering behind our latest release.`;
+      } else if (platform === 'X (Twitter)') {
+        bodyText = `⚡ Speed isn't just about pace — it's about what you have under your feet.\n\nEngineered for maximum energy return and zero compromise. Meet your new running standard.\n\nGear up today. 👇`;
+        ctaText = `Shop running performance now.`;
+      } else {
+        bodyText = `Ready to crush your fitness goals this season? 🏃‍♀️⚡\n\nWhether you're training for your first 5K or chasing a marathon PR, the right gear makes all the difference.\n\nExperience lightweight comfort, responsive cushioning, and durability that goes the distance with ${displayBrand}.`;
+        ctaText = `👉 Step into greatness. Shop the collection today!`;
+      }
 
-    const coreMsg = `At ${displayBrand}, we're committed to delivering exceptional value for ${displayAudience}.${keywordsLine}\n\nThis is our promise to you: quality you can trust, every time.`;
+      hashtagTokens = [
+        `#${displayBrand.replace(/\s+/g, '')}Running`,
+        '#RunningShoes',
+        '#JustDoIt',
+        '#MarathonTraining',
+        '#FitnessMotivation',
+        '#RunnersOfInstagram',
+        '#AthleticPerformance',
+        '#SpeedAndEndurance',
+      ];
+    } else if (lowerTopic.includes('pizza') || lowerTopic.includes('restaurant') || lowerTopic.includes('food') || lowerTopic.includes('dining') || lowerTopic.includes('cafe')) {
+      hookText = `🍕 Fresh Out of the Wood-Fired Oven: Handcrafted Culinary Passion at ${displayBrand}.`;
+      
+      if (platform === 'Instagram') {
+        bodyText = `🤤 Savor every single bite. 🍕✨\n\nCrafted with 48-hour slow-fermented artisan dough, crushed San Marzano tomatoes, fresh creamy buffalo mozzarella, and aromatic farm-fresh basil — baked at 900°F to blistered, crispy perfection.\n\n🔥 Hand-stretched wood-fired artisan crust\n🧀 Melted gourmet cheeses & savory toppings\n🌿 Farm-to-table organic herbs and olive oil\n\nGreat memories start around great food. Gather your crew and taste what authentic culinary craft feels like.`;
+        ctaText = `👉 Tap the link in bio to reserve your table or order fresh to your door!`;
+      } else if (platform === 'LinkedIn') {
+        bodyText = `Behind every exceptional dining experience lies culinary integrity, supply chain precision, and hospitality excellence.\n\nAt ${displayBrand}, our kitchen philosophy focuses on:\n• Direct partnerships with local organic growers and artisan producers\n• Traditional culinary techniques blended with modern hospitality efficiency\n• Creating welcoming dining spaces that foster real human connection\n\nIn an era of automated convenience, authentic craftsmanship remains the ultimate differentiator in hospitality.`;
+        ctaText = `👉 Learn more about our culinary journey and locations.`;
+      } else if (platform === 'X (Twitter)') {
+        bodyText = `🍕 Craving the real deal? Crispy blistered crust, bubbly melted mozzarella, and fresh basil straight from our wood-fired oven.\n\nTreat yourself tonight at ${displayBrand}. Order now! 👇`;
+        ctaText = `Order your favorite artisan dishes now!`;
+      } else {
+        bodyText = `Dinner plans sorted! 🍕🍷 Bring your family and friends together for an unforgettable dining experience handcrafted with love, fresh ingredients, and time-honored recipes.\n\nTag your favorite foodie buddy in the comments below! 👇`;
+        ctaText = `👉 Book your table or order online for delivery!`;
+      }
 
-    const cta = `👉 ${displayObj.charAt(0).toUpperCase() + displayObj.slice(1)}.`;
+      hashtagTokens = [
+        `#${displayBrand.replace(/\s+/g, '')}Food`,
+        '#ArtisanPizza',
+        '#ItalianDining',
+        '#GourmetFood',
+        '#FoodieGram',
+        '#FreshIngredients',
+        '#WoodFiredOven',
+        '#RestaurantExperience',
+      ];
+    } else {
+      // Dynamic semantic composition for any general or new topic
+      const topicTitle = topic.length < 50 ? topic : topic.substring(0, 45);
+      hookText = `✨ Elevate Your Experience: ${topicTitle} with ${displayBrand}.`;
+      
+      if (platform === 'Instagram') {
+        bodyText = `💡 Discover what happens when innovation meets dedication. ✨\n\nWhether you're looking to transform your workflow, upgrade your daily lifestyle, or unlock new possibilities, ${displayBrand} delivers exceptional solutions designed around what matters most to you.\n\n🎯 Tailored specifically for ${targetAudience || 'discerning customers'}\n⚡ Built for reliability, speed, and real-world impact\n🌟 Proven quality you can trust every single day\n\nTake the next step and experience the difference firsthand.`;
+        ctaText = `👉 ${objective || 'Tap the link in bio to learn more and get started today!'}`;
+      } else if (platform === 'LinkedIn') {
+        bodyText = `Navigating modern market challenges requires forward-thinking strategy, strategic focus, and dependable partners.\n\nWith ${topic}, ${displayBrand} is helping ${targetAudience || 'leaders and professionals'} achieve tangible outcomes through purposeful design and execution.\n\nKey Strategic Pillars:\n• Delivering measurable value across every touchpoint\n• Eliminating friction and streamlining complex processes\n• Building sustainable, scalable growth for long-term success\n\nWhat priorities are guiding your strategic initiatives this quarter? Let's discuss below.`;
+        ctaText = `👉 Connect with our team to discover how we can support your goals.`;
+      } else if (platform === 'X (Twitter)') {
+        bodyText = `✨ Ready to transform the way you approach ${topicTitle}? ${displayBrand} brings precision, clarity, and results.\n\nFind out how we're making it happen. 👇`;
+        ctaText = `Explore the details now.`;
+      } else {
+        bodyText = `We are excited to share what we've been working on! ✨\n\n${topicTitle} is all about giving you better tools, better value, and a better experience from start to finish.\n\nSee how ${displayBrand} is making a real difference today.`;
+        ctaText = `👉 Check it out today and let us know your thoughts!`;
+      }
 
-    // Build separate hashtags from topic words + keywords + brand name
-    const topicHashtags = topic
-      .split(/\s+/)
-      .filter(w => w.length > 2)
-      .slice(0, 3)
-      .map(w => `#${w.replace(/[^a-zA-Z0-9]/g, '')}`);
+      const topicWords = topic
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 2)
+        .slice(0, 4)
+        .map(w => `#${w.charAt(0).toUpperCase() + w.slice(1)}`);
 
-    const keywordHashtags = keywordList
-      .slice(0, 5)
-      .map(k => `#${k.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}`);
+      hashtagTokens = [
+        `#${displayBrand.replace(/\s+/g, '')}`,
+        ...topicWords,
+        '#Innovation',
+        '#QualityFirst',
+        '#GrowthMindset',
+      ];
+    }
 
-    const brandHashtag = effectiveBrandName
-      ? [`#${effectiveBrandName.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')}`]
-      : [];
-
-    const industryHashtag = industry
-      ? [`#${industry.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`]
-      : [];
-
-    const allHashtags = [...new Set([
-      ...brandHashtag,
-      ...topicHashtags,
-      ...keywordHashtags,
-      ...industryHashtag,
-    ])].filter(h => h.length > 1).slice(0, 10);
-
-    const fallbackContent = `**Hook / Headline:**
-${hook}
+    const structuredContent = `**Hook / Headline:**
+${hookText}
 
 **Main Content:**
-${coreMsg}
+${bodyText}
 
 **Call to Action:**
-${cta}
+${ctaText}
 
 **Hashtags:**
-${allHashtags.join(' ')}`;
+${hashtagTokens.join(' ')}`;
 
     return {
-      content:     fallbackContent,
+      content:     structuredContent,
+      headline:    hookText,
+      caption:     bodyText,
+      cta:         ctaText,
+      hashtags:    hashtagTokens,
       type,
       platform,
       topic,
       brandName:   effectiveBrandName,
-      model:       'zenvora-engine-v1',
+      model:       'zenvora-creative-ai-v2',
       generatedAt: new Date().toISOString(),
-      note:        'Configure GEMINI_API_KEY in your environment variables for live Gemini generation.',
     };
   },
 

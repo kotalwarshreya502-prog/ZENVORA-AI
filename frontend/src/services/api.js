@@ -14,12 +14,16 @@ const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach JWT token from localStorage
+// Request Interceptor: Attach JWT token & optional custom Gemini API key
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('zenvora_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    const geminiKey = localStorage.getItem('zenvora_gemini_api_key');
+    if (geminiKey && geminiKey.trim()) {
+      config.headers['x-gemini-api-key'] = geminiKey.trim();
     }
     return config;
   },
@@ -135,6 +139,35 @@ export const api = {
   getHistory:        (params)   => apiClient.get('/history', { params }),
   saveHistoryItem:   (id, data) => apiClient.patch(`/history/${id}/save`, data),
   deleteHistoryItem: (id)       => apiClient.delete(`/history/${id}`),
+
+  // ── File Download Helper ──────────────────────────────────────────────────
+  downloadImage: async (imageUrl, filename = 'zenvora-creative.jpg') => {
+    try {
+      const response = await fetch(imageUrl, { mode: 'cors' });
+      if (!response.ok) throw new Error('Fetch failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      return true;
+    } catch {
+      // Direct window download fallback
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.target = '_blank';
+      link.rel = 'noreferrer noopener';
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return true;
+    }
+  },
 };
 
 export default apiClient;

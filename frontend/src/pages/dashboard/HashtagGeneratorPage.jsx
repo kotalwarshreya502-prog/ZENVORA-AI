@@ -4,6 +4,47 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 
+const ClusterCard = ({ label, tags, tier, color, description, copiedSection, handleCopyCluster, selectedTags, toggleTag }) => (
+  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-2">
+        <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
+        <h3 className="text-sm font-bold text-slate-900">{label}</h3>
+      </div>
+      {tags.length > 0 && (
+        <button
+          onClick={() => handleCopyCluster(tags, tier)}
+          className="text-xs text-slate-500 hover:text-brand-violet flex items-center gap-1 transition-colors"
+        >
+          {copiedSection === tier ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+          {copiedSection === tier ? 'Copied' : 'Copy Tier'}
+        </button>
+      )}
+    </div>
+    <p className="text-xs text-slate-400 mb-3">{description}</p>
+    {tags.length > 0 ? (
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => toggleTag(tag)}
+            className={`text-xs px-2.5 py-1 rounded-md border font-mono transition-all ${
+              selectedTags.includes(tag)
+                ? `bg-brand-violet text-white border-brand-violet`
+                : `bg-brand-violet/5 text-brand-violet border-brand-violet/20 hover:bg-brand-violet/10`
+            }`}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+    ) : (
+      <p className="text-xs text-slate-300 italic">Generate hashtags to populate this tier</p>
+    )}
+  </div>
+);
+
 export const HashtagGeneratorPage = () => {
   const [keyword,       setKeyword]       = useState('');
   const [brandName,     setBrandName]     = useState('');
@@ -103,47 +144,6 @@ export const HashtagGeneratorPage = () => {
   ];
 
   const inputCls = 'w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20 focus:border-brand-violet bg-white';
-
-  const ClusterCard = ({ label, tags, tier, color, description }) => (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
-          <h3 className="text-sm font-bold text-slate-900">{label}</h3>
-        </div>
-        {tags.length > 0 && (
-          <button
-            onClick={() => handleCopyCluster(tags, tier)}
-            className="text-xs text-slate-500 hover:text-brand-violet flex items-center gap-1 transition-colors"
-          >
-            {copiedSection === tier ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
-            {copiedSection === tier ? 'Copied' : 'Copy Tier'}
-          </button>
-        )}
-      </div>
-      <p className="text-xs text-slate-400 mb-3">{description}</p>
-      {tags.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {tags.map((tag, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => toggleTag(tag)}
-              className={`text-xs px-2.5 py-1 rounded-md border font-mono transition-all ${
-                selectedTags.includes(tag)
-                  ? `bg-brand-violet text-white border-brand-violet`
-                  : `bg-brand-violet/5 text-brand-violet border-brand-violet/20 hover:bg-brand-violet/10`
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-slate-300 italic">Generate hashtags to populate this tier</p>
-      )}
-    </div>
-  );
 
   return (
     <div className="space-y-6">
@@ -275,6 +275,10 @@ export const HashtagGeneratorPage = () => {
             tier="broad"
             color="bg-blue-500"
             description="High-volume hashtags for general discoverability in this topic area."
+            copiedSection={copiedSection}
+            handleCopyCluster={handleCopyCluster}
+            selectedTags={selectedTags}
+            toggleTag={toggleTag}
           />
           <ClusterCard
             label="Niche Authority"
@@ -282,6 +286,10 @@ export const HashtagGeneratorPage = () => {
             tier="niche"
             color="bg-brand-violet"
             description="Specific to the topic — lower competition, higher engagement quality."
+            copiedSection={copiedSection}
+            handleCopyCluster={handleCopyCluster}
+            selectedTags={selectedTags}
+            toggleTag={toggleTag}
           />
           <ClusterCard
             label="High-Conversion Intent"
@@ -289,6 +297,10 @@ export const HashtagGeneratorPage = () => {
             tier="intent"
             color="bg-emerald-500"
             description="Used by people actively searching for or buying in this category."
+            copiedSection={copiedSection}
+            handleCopyCluster={handleCopyCluster}
+            selectedTags={selectedTags}
+            toggleTag={toggleTag}
           />
           <ClusterCard
             label="Community & Ecosystem"
@@ -296,6 +308,10 @@ export const HashtagGeneratorPage = () => {
             tier="community"
             color="bg-amber-500"
             description="Community-specific hashtags for peer engagement and ecosystem reach."
+            copiedSection={copiedSection}
+            handleCopyCluster={handleCopyCluster}
+            selectedTags={selectedTags}
+            toggleTag={toggleTag}
           />
         </div>
       )}

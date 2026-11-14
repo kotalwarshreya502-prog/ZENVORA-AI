@@ -291,7 +291,7 @@ export const ImageGenerationPage = () => {
                   onChange={e => setDescription(e.target.value)}
                   placeholder="e.g. Flipkart Diwali Sale, Nike Running Shoes Launch, Pune Coaching Classes Admission Open, World Environment Day..."
                   rows={4}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-indigo-400/60 resize-none text-sm"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-indigo-400/60 resize-y text-sm"
                   onKeyDown={e => e.key === 'Enter' && e.ctrlKey && handleGenerate()}
                 />
                 <p className="text-xs text-white/30 mt-1">Ctrl+Enter to generate</p>

@@ -79,10 +79,11 @@ export const generatePoster = async (req, res) => {
     const descTrimmed = description.trim();
 
     // ── 1. Analyze input ──────────────────────────────────────────────────────
-    const { analyzeInput, generatePosterPrompt, buildDesignSpec, fetchBrandLogo } =
+    const { analyzeInput, generatePosterPrompt, buildDesignSpec, fetchBrandLogo, getCuratedFallback } =
       await import('../services/posterIntelligenceService.js');
 
-    const analysis = await analyzeInput(descTrimmed);
+    const apiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY;
+    const analysis = await analyzeInput(descTrimmed, apiKey);
 
     // Apply user overrides
     if (customHeadline) analysis.headline = customHeadline;
@@ -144,6 +145,7 @@ export const generatePoster = async (req, res) => {
     // ── 6. Compose response ───────────────────────────────────────────────────
     const output = {
       imageUrl,
+      fallbackImageUrl: getCuratedFallback(descTrimmed),
       imagePrompt,
       designSpec,
       analysis: {

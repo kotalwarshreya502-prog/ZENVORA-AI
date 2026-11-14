@@ -57,10 +57,12 @@ export const generateMarketingContent = async (req, res) => {
 
     const userId        = req.user?.id || 'demo_user';
     const brandGuidelines = await getBrandCtx(userId);
+    const customApiKey  = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
 
     const result = await GeminiService.generateMarketingContent({
       type, platform, industry, targetAudience, topic,
       tone, language, keywords, length, brandName, objective, brandGuidelines,
+      customApiKey,
     });
 
     saveHistory(userId, 'marketing-content', req.body, result, result.model);

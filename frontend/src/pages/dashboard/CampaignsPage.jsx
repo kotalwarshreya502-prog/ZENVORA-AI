@@ -21,14 +21,11 @@ export const CampaignsPage = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [newCampaign, setNewCampaign] = useState({
-    name: '',
-    objective: 'Lead Generation',
-    targetAudience: 'B2B Founders & Marketers',
-    platforms: ['LinkedIn', 'Blog'],
-    budget: 3000,
-    description: '',
-  });
+  const [campaignName, setCampaignName] = useState('');
+  const [campaignObjective, setCampaignObjective] = useState('Lead Generation');
+  const [campaignAudience, setCampaignAudience] = useState('B2B Founders & Marketers');
+  const [campaignBudget, setCampaignBudget] = useState(3000);
+  const [campaignDescription, setCampaignDescription] = useState('');
 
   useEffect(() => {
     loadCampaigns();
@@ -48,16 +45,20 @@ export const CampaignsPage = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await api.createCampaign(newCampaign);
-      setShowModal(false);
-      setNewCampaign({
-        name: '',
-        objective: 'Lead Generation',
-        targetAudience: 'B2B Founders & Marketers',
+      await api.createCampaign({
+        name: campaignName.trim(),
+        objective: campaignObjective,
+        targetAudience: campaignAudience.trim(),
         platforms: ['LinkedIn', 'Blog'],
-        budget: 3000,
-        description: '',
+        budget: Number(campaignBudget) || 0,
+        description: campaignDescription.trim(),
       });
+      setShowModal(false);
+      setCampaignName('');
+      setCampaignObjective('Lead Generation');
+      setCampaignAudience('B2B Founders & Marketers');
+      setCampaignBudget(3000);
+      setCampaignDescription('');
       loadCampaigns();
     } catch (err) {
       alert(`Error creating campaign: ${err.message}`);
@@ -179,8 +180,8 @@ export const CampaignsPage = () => {
                   type="text"
                   required
                   placeholder="e.g. Q4 Inbound Pipeline Sprint"
-                  value={newCampaign.name}
-                  onChange={(e) => setNewCampaign({ ...newCampaign, name: e.target.value })}
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet"
                 />
               </div>
@@ -189,8 +190,8 @@ export const CampaignsPage = () => {
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700">Primary Objective</label>
                   <select
-                    value={newCampaign.objective}
-                    onChange={(e) => setNewCampaign({ ...newCampaign, objective: e.target.value })}
+                    value={campaignObjective}
+                    onChange={(e) => setCampaignObjective(e.target.value)}
                     className="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:border-brand-violet"
                   >
                     <option value="Lead Generation">Lead Generation</option>
@@ -205,8 +206,8 @@ export const CampaignsPage = () => {
                   <label className="text-xs font-bold text-slate-700">Budget ($ USD)</label>
                   <input
                     type="number"
-                    value={newCampaign.budget}
-                    onChange={(e) => setNewCampaign({ ...newCampaign, budget: Number(e.target.value) })}
+                    value={campaignBudget}
+                    onChange={(e) => setCampaignBudget(Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet"
                   />
                 </div>
@@ -217,8 +218,8 @@ export const CampaignsPage = () => {
                 <input
                   type="text"
                   placeholder="e.g. E-commerce founders and VP of Marketing"
-                  value={newCampaign.targetAudience}
-                  onChange={(e) => setNewCampaign({ ...newCampaign, targetAudience: e.target.value })}
+                  value={campaignAudience}
+                  onChange={(e) => setCampaignAudience(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet"
                 />
               </div>
@@ -228,8 +229,8 @@ export const CampaignsPage = () => {
                 <textarea
                   rows={3}
                   placeholder="Key messaging pillars, timeline requirements..."
-                  value={newCampaign.description}
-                  onChange={(e) => setNewCampaign({ ...newCampaign, description: e.target.value })}
+                  value={campaignDescription}
+                  onChange={(e) => setCampaignDescription(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-violet resize-none"
                 />
               </div>
