@@ -42,23 +42,19 @@ export const getHealth = async (req, res) => {
   if (geminiConfigured && isDeep) {
     try {
       const start = Date.now();
-      const testRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'ping' }] }],
-            generationConfig: { maxOutputTokens: 2 },
-          }),
-        }
+      const listRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
+        { method: 'GET' }
       );
       textAiLatencyMs = Date.now() - start;
-      if (testRes.ok) {
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const modelNames = (listData.models || []).map(m => m.name.replace('models/', ''));
         textAiStatus = 'connected';
+        textAiError = `Available models: ${modelNames.join(', ')}`;
       } else {
-        const errText = await testRes.text();
-        textAiStatus = `api_error_${testRes.status}`;
+        const errText = await listRes.text();
+        textAiStatus = `api_error_${listRes.status}`;
         textAiError = errText.slice(0, 300);
       }
     } catch (e) {
