@@ -39,6 +39,7 @@ export const DashboardSidebar = ({ mobileOpen, setMobileOpen }) => {
       title: 'OVERVIEW',
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
+        { name: 'AI Marketing Agent', path: '/dashboard/ai-agent', icon: <Sparkles size={18} />, badge: 'AI OS' },
         { name: 'Business Profile', path: '/dashboard/business-profile', icon: <Building size={18} /> },
       ],
     },

@@ -1,6 +1,7 @@
 import {
-  AlertCircle, Bot, Clock, Filter, History,
-  Loader2, RefreshCw, Trash2,
+  AlertCircle, Bot, Clock, Copy, Check, ChevronDown, ChevronUp,
+  ExternalLink, Filter, History, Image as ImageIcon,
+  Loader2, RefreshCw, Trash2, Sparkles,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Badge from '../../components/ui/Badge';
@@ -10,10 +11,19 @@ import { api } from '../../services/api';
 
 const MODULE_LABELS = {
   'content-studio': 'Content Studio',
+  'marketing-content': 'Content Studio',
   'blog-generator': 'Blog Generator',
   'caption-generator': 'Caption Generator',
   'hashtag-generator': 'Hashtag Generator',
   'image-generation': 'Image Generator',
+  'intelligent-poster': 'Poster Creator',
+  'ad-creative': 'Ad Creative',
+  'campaign-strategy': 'Campaign Strategy',
+  'email-generator': 'Email Generator',
+  'content-calendar': 'Content Calendar',
+  'content-improver': 'Content Improver',
+  'brand-voice': 'Brand Voice',
+  'product-description': 'Product Description',
   'research-assistant': 'Research',
   'research': 'Research',
   'competitor-analysis': 'Competitor Analysis',
@@ -23,11 +33,14 @@ const MODULE_LABELS = {
 
 const MODULE_BADGE_VARIANT = {
   'content-studio': 'violet',
+  'marketing-content': 'violet',
   'blog-generator': 'teal',
-  'image-generation': 'slate',
-  'research-assistant': 'violet',
-  'research': 'violet',
-  'competitor-analysis': 'teal',
+  'image-generation': 'violet',
+  'intelligent-poster': 'violet',
+  'social-generator': 'teal',
+  'research-assistant': 'slate',
+  'research': 'slate',
+  'competitor-analysis': 'slate',
   'seo-analysis': 'slate',
 };
 
@@ -37,6 +50,8 @@ export const GenerationHistoryPage = () => {
   const [error, setError] = useState(null);
   const [moduleFilter, setModuleFilter] = useState('');
   const [deleting, setDeleting] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -44,8 +59,8 @@ export const GenerationHistoryPage = () => {
     try {
       const params = moduleFilter ? { module: moduleFilter } : {};
       const res = await api.getHistory(params);
-      // Backend returns { items: [...] } or spreads directly
-      setHistory(res?.items || res?.history || []);
+      const items = res?.items || res?.data?.items || res?.history || [];
+      setHistory(items);
     } catch (err) {
       setError(err?.message || 'Failed to load generation history.');
     } finally {
@@ -58,7 +73,7 @@ export const GenerationHistoryPage = () => {
   }, [moduleFilter]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this history record?')) return;
+    if (!window.confirm('Delete this history record permanently?')) return;
     setDeleting(id);
     try {
       await api.deleteHistoryItem(id);
@@ -70,20 +85,34 @@ export const GenerationHistoryPage = () => {
     }
   };
 
-  const moduleOptions = [...new Set(history.map((h) => h.module))];
+  const handleCopy = (text, id) => {
+    if (!text) return;
+    navigator.clipboard.writeText(typeof text === 'string' ? text : JSON.stringify(text, null, 2));
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const getOutputText = (output) => {
+    if (!output) return '';
+    if (typeof output === 'string') return output;
+    if (output.content) return output.content;
+    if (output.text) return output.text;
+    if (output.headline) return `${output.headline}\n${output.subheadline || ''}\n${output.cta || ''}`;
+    return '';
+  };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Badge variant="violet" size="sm">Your Generations</Badge>
+          <Badge variant="violet" size="sm">Your Generation Logs</Badge>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-navy tracking-tight">
           Generation History
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Every AI generation you've made, scoped to your account only. Never mixed with other users.
+          Persistent history of all AI generations across your workspace. Fully isolated to your account.
         </p>
       </div>
 
@@ -108,7 +137,7 @@ export const GenerationHistoryPage = () => {
           className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-brand-violet hover:border-brand-violet transition-colors"
           title="Refresh"
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </button>
         <span className="text-xs text-slate-400 ml-auto">
           {history.length} record{history.length !== 1 ? 's' : ''}
@@ -119,7 +148,7 @@ export const GenerationHistoryPage = () => {
       {loading && (
         <Card className="p-12 text-center space-y-3">
           <Loader2 size={28} className="animate-spin text-brand-violet mx-auto" />
-          <p className="text-xs text-slate-500">Loading your generation history…</p>
+          <p className="text-xs text-slate-500">Loading your generation history...</p>
         </Card>
       )}
 
@@ -131,7 +160,7 @@ export const GenerationHistoryPage = () => {
             <span className="text-sm font-semibold">{error}</span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Ensure the backend is running and GEMINI_API_KEY is configured. History is saved when generations succeed.
+            Ensure the backend is online and connected to MongoDB Atlas.
           </p>
           <Button
             variant="secondary"
@@ -149,62 +178,125 @@ export const GenerationHistoryPage = () => {
         <Card className="p-12 text-center space-y-3 text-slate-400">
           <History size={40} className="mx-auto opacity-20" />
           <p className="text-sm font-semibold">No generation history yet</p>
-          <p className="text-xs">Use Content Studio, Research Assistant, or Image Generator to create your first record.</p>
+          <p className="text-xs">Use Content Studio, Social Generator, or Poster Creator to create your first record.</p>
         </Card>
       )}
 
       {/* History Grid */}
       {!loading && !error && history.length > 0 && (
         <div className="space-y-3">
-          {history.map((item) => (
-            <Card key={item._id} className="p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="p-2 bg-brand-violet/10 rounded-xl shrink-0">
-                    <Bot size={16} className="text-brand-violet" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-bold text-brand-navy truncate">
-                        {item.title || item.input?.topic || item.input?.campaignTitle || 'Untitled'}
-                      </p>
-                      <Badge
-                        variant={MODULE_BADGE_VARIANT[item.module] || 'slate'}
-                        size="xs"
-                      >
-                        {MODULE_LABELS[item.module] || item.module}
-                      </Badge>
-                      {item.isSaved && (
-                        <Badge variant="teal" size="xs">Saved</Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-400 flex-wrap">
-                      <span className="font-mono">{item.model || item.provider || '—'}</span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={9} />
-                        {new Date(item.createdAt).toLocaleString()}
-                      </span>
-                      <span className={`font-semibold ${item.status === 'success' || item.status === 'completed' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                        {item.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+          {history.map((item) => {
+            const isImage = item.module === 'image-generation' || item.module === 'intelligent-poster' || Boolean(item.output?.imageUrl);
+            const imageUrl = item.output?.imageUrl;
+            const outputText = getOutputText(item.output);
+            const isExpanded = expandedId === item._id;
+            const displayTitle = item.title || item.input?.topic || item.input?.description || item.input?.campaignTitle || item.input?.title || 'Marketing Asset';
 
-                <button
-                  onClick={() => handleDelete(item._id)}
-                  disabled={deleting === item._id}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-colors shrink-0"
-                  title="Delete"
-                >
-                  {deleting === item._id
-                    ? <Loader2 size={14} className="animate-spin" />
-                    : <Trash2 size={14} />
-                  }
-                </button>
-              </div>
-            </Card>
-          ))}
+            return (
+              <Card key={item._id} className="p-4 hover:shadow-md transition-shadow">
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="p-2 bg-brand-violet/10 rounded-xl shrink-0 mt-0.5">
+                        {isImage ? (
+                          <ImageIcon size={16} className="text-brand-violet" />
+                        ) : (
+                          <Bot size={16} className="text-brand-violet" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-bold text-brand-navy truncate">
+                            {displayTitle}
+                          </p>
+                          <Badge
+                            variant={MODULE_BADGE_VARIANT[item.module] || 'slate'}
+                            size="xs"
+                          >
+                            {MODULE_LABELS[item.module] || item.module}
+                          </Badge>
+                          {item.isSaved && (
+                            <Badge variant="teal" size="xs">Saved</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-400 flex-wrap">
+                          <span className="font-mono">{item.model || item.provider || 'gemini'}</span>
+                          <span className="flex items-center gap-1">
+                            <Clock size={9} />
+                            {new Date(item.createdAt).toLocaleString()}
+                          </span>
+                          <span className={`font-semibold ${item.status === 'success' || item.status === 'completed' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                            {item.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {outputText && (
+                        <button
+                          onClick={() => handleCopy(outputText, item._id)}
+                          className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-brand-violet hover:border-brand-violet transition-colors"
+                          title="Copy Content"
+                        >
+                          {copiedId === item._id ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : item._id)}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-brand-violet hover:border-brand-violet transition-colors"
+                        title={isExpanded ? 'Collapse' : 'Expand'}
+                      >
+                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item._id)}
+                        disabled={deleting === item._id}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-colors"
+                        title="Delete record"
+                      >
+                        {deleting === item._id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Image Thumbnail Preview */}
+                  {imageUrl && (
+                    <div className="mt-2 flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <img
+                        src={imageUrl}
+                        alt={displayTitle}
+                        className="w-16 h-16 object-cover rounded-md bg-slate-200"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      <div className="text-xs text-slate-600 flex-1 min-w-0">
+                        <span className="font-semibold block truncate">AI Generated Creative Visual</span>
+                        <a
+                          href={imageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-brand-violet hover:underline inline-flex items-center gap-1 mt-0.5"
+                        >
+                          View Full Resolution <ExternalLink size={10} />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Text Preview / Expanded Section */}
+                  {outputText && (
+                    <div className={`text-xs text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100 whitespace-pre-wrap leading-relaxed ${!isExpanded ? 'line-clamp-2' : ''}`}>
+                      {outputText}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

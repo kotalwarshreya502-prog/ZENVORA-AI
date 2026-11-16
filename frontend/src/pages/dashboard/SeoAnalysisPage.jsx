@@ -12,112 +12,90 @@ import {
   FileCode,
   Share2,
   RefreshCw,
-  Lightbulb
+  Lightbulb,
+  Layers,
+  Target,
+  AlertCircle,
 } from 'lucide-react';
 import { api } from '../../services/api';
 
 export const SeoAnalysisPage = () => {
+  const [activeTab, setActiveTab] = useState('audit'); // 'audit' | 'keywords'
   const [url, setUrl] = useState('https://zenvora.ai');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  // Live Audit Result
   const [auditResult, setAuditResult] = useState({
     url: 'https://zenvora.ai',
     overallScore: 92,
-    breakdown: {
-      metaTags: 95,
-      contentStructure: 90,
-      technical: 94,
-      socialGraph: 88,
-    },
-    details: {
-      title: 'ZENVORA AI | Smarter Marketing. Sustainable Growth.',
-      titleLength: 49,
+    meta: {
+      title: 'ZENVORA AI | Autonomous Marketing Operating System',
       metaDescription: 'AI-powered marketing automation SaaS platform for autonomous campaigns, SEO intelligence, and multi-channel content operations.',
-      metaDescriptionLength: 125,
-      h1Tags: ['Smarter Marketing. Sustainable Growth.'],
+      h1Count: 1,
       h2Count: 6,
-      imageCount: 14,
-      imagesWithoutAlt: 0,
-      openGraph: true,
-      canonical: 'https://zenvora.ai',
+      imgCount: 14,
+      imgWithoutAlt: 0,
+      hasCanonical: true,
+      hasOpenGraph: true,
     },
     recommendations: [
-      {
-        severity: 'medium',
-        text: 'Add schema.org Organization structured data to enhance rich snippets in Google Search results.',
-        impact: 'High Visibility',
-      },
-      {
-        severity: 'low',
-        text: 'Consider expanding secondary keyword variations in H2 subheadings for long-tail search capture.',
-        impact: 'Keyword Depth',
-      },
-      {
-        severity: 'low',
-        text: 'Ensure all external citations in blog content use rel="noopener" for optimal browser performance.',
-        impact: 'Best Practice',
-      },
+      'Ensure primary target keyword appears in the first 100 words of content.',
+      'Maintain an active XML sitemap and submit it to Google Search Console.',
+      'Add internal links pointing to high-priority commercial and conversion pages.',
     ],
-    suggestedKeywords: [
-      { keyword: 'AI marketing automation platform', searchVolume: '14,800/mo', competition: 'Medium', relevance: '98%' },
-      { keyword: 'autonomous content marketing SaaS', searchVolume: '6,200/mo', competition: 'Low', relevance: '95%' },
-      { keyword: 'multi-channel social media scheduler AI', searchVolume: '9,400/mo', competition: 'High', relevance: '92%' },
-      { keyword: 'programmatic SEO blog generator', searchVolume: '4,100/mo', competition: 'Low', relevance: '90%' },
+    keywordSuggestions: [
+      { keyword: 'AI marketing automation platform', volume: '14.8K', difficulty: 'Medium', intent: 'Commercial' },
+      { keyword: 'autonomous content marketing SaaS', volume: '6.2K', difficulty: 'Low', intent: 'Informational' },
+      { keyword: 'multi-channel social media scheduler AI', volume: '9.4K', difficulty: 'High', intent: 'Transactional' },
     ],
   });
+
+  // Keyword Cluster Research State
+  const [seedKeywords, setSeedKeywords] = useState('AI marketing automation, social media scheduler, SEO blog generator');
+  const [researchingKeywords, setResearchingKeywords] = useState(false);
+  const [keywordClusterResult, setKeywordClusterResult] = useState(null);
 
   const handleAnalyze = async (e) => {
     e?.preventDefault();
     if (!url.trim()) return;
 
     setLoading(true);
+    setErrorMsg('');
+
     try {
       const response = await api.analyzeSeo({ url });
-      if (response && response.data) {
-        setAuditResult(response.data);
+      if (response) {
+        setAuditResult(response.data || response);
       }
     } catch (err) {
       console.error('SEO Audit error:', err);
-      // Simulated dynamic response based on URL
-      setAuditResult({
-        url: url.startsWith('http') ? url : `https://${url}`,
-        overallScore: 88,
-        breakdown: {
-          metaTags: 85,
-          contentStructure: 92,
-          technical: 90,
-          socialGraph: 85,
-        },
-        details: {
-          title: `Optimized Marketing Strategy | ${url.replace(/https?:\/\//, '')}`,
-          titleLength: 52,
-          metaDescription: `Discover high-performance automated marketing intelligence and verified SEO workflows on ${url}.`,
-          metaDescriptionLength: 110,
-          h1Tags: [`Welcome to ${url}`],
-          h2Count: 5,
-          imageCount: 10,
-          imagesWithoutAlt: 1,
-          openGraph: true,
-          canonical: url,
-        },
-        recommendations: [
-          {
-            severity: 'high',
-            text: '1 image is missing an descriptive alt attribute. Add alt text to improve accessibility and image SEO.',
-            impact: 'Search Ranking',
-          },
-          {
-            severity: 'medium',
-            text: 'Meta description length is 110 characters. Consider expanding to 145-160 characters for complete SERP display.',
-            impact: 'Click-Through Rate',
-          },
-        ],
-        suggestedKeywords: [
-          { keyword: `${url.replace(/https?:\/\//, '')} review`, searchVolume: '2,400/mo', competition: 'Low', relevance: '95%' },
-          { keyword: 'enterprise marketing tools', searchVolume: '8,900/mo', competition: 'Medium', relevance: '91%' },
-        ],
-      });
+      setErrorMsg(err?.message || 'Failed to complete SEO audit. Please check that the URL is live and accessible.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeywordResearch = async (e) => {
+    e?.preventDefault();
+    if (!seedKeywords.trim()) return;
+
+    setResearchingKeywords(true);
+    setErrorMsg('');
+
+    try {
+      const res = await api.researchKeywords({
+        seedKeywords: seedKeywords.trim(),
+        domain: url,
+      });
+      if (res?.data) {
+        setKeywordClusterResult(res.data);
+      }
+    } catch (err) {
+      console.error('Keyword Research error:', err);
+      setErrorMsg(err?.message || 'Failed to generate keyword clusters.');
+    } finally {
+      setResearchingKeywords(false);
     }
   };
 
@@ -133,247 +111,280 @@ export const SeoAnalysisPage = () => {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <Search className="text-brand-violet" size={24} />
-          Algorithmic Website SEO Auditor
+          SEO Intelligence & Keyword Clustering
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Perform live technical SEO inspections, meta diagnostics, heading hierarchy analysis, and keyword opportunity extraction.
+          Perform live technical SEO inspections, meta diagnostics, heading hierarchy analysis, and semantic keyword cluster mapping.
         </p>
       </div>
 
-      {/* URL Input Bar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
-        <form onSubmit={handleAnalyze} className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              type="text"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="Enter your website URL (e.g. https://yourcompany.com)"
-              className="w-full text-sm rounded-lg border border-slate-300 pl-10 pr-4 py-3 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20 focus:border-brand-violet"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading || !url.trim()}
-            className="py-3 px-6 rounded-lg bg-brand-violet hover:bg-brand-violet/90 text-white font-medium text-sm shadow-md shadow-brand-violet/20 transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <RefreshCw className="animate-spin" size={18} />
-                Auditing URL...
-              </>
-            ) : (
-              <>
-                <Sparkles size={18} />
-                Run Technical Audit
-              </>
-            )}
-          </button>
-        </form>
+      {/* Tabs */}
+      <div className="flex border-b border-slate-200 gap-6">
+        <button
+          onClick={() => setActiveTab('audit')}
+          className={`pb-3 text-sm font-semibold transition-colors relative ${
+            activeTab === 'audit' ? 'text-brand-violet border-b-2 border-brand-violet' : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          Website On-Page Audit
+        </button>
+        <button
+          onClick={() => setActiveTab('keywords')}
+          className={`pb-3 text-sm font-semibold transition-colors relative flex items-center gap-1.5 ${
+            activeTab === 'keywords' ? 'text-brand-violet border-b-2 border-brand-violet' : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Sparkles size={15} />
+          <span>Keyword Clusters & Search Intent</span>
+        </button>
       </div>
 
-      {/* Score Overview & Sub-metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        {/* Primary Score Gauge (4 Cols) */}
-        <div className="md:col-span-4 bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col items-center justify-center text-center">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-            Overall Health Score
-          </span>
-          <div
-            className={`w-32 h-32 rounded-full border-8 flex flex-col items-center justify-center font-bold mb-3 ${
-              auditResult.overallScore >= 90
-                ? 'border-emerald-500 text-emerald-600 bg-emerald-50/30'
-                : auditResult.overallScore >= 70
-                ? 'border-amber-500 text-amber-600 bg-amber-50/30'
-                : 'border-red-500 text-red-600 bg-red-50/30'
-            }`}
-          >
-            <span className="text-4xl">{auditResult.overallScore}</span>
-            <span className="text-xs text-slate-500 font-normal">out of 100</span>
-          </div>
-          <span className="text-sm font-bold text-slate-800">
-            {auditResult.overallScore >= 90
-              ? 'Excellent Optimization'
-              : auditResult.overallScore >= 70
-              ? 'Good - Minor Fixes Needed'
-              : 'Action Required'}
-          </span>
-          <span className="text-xs text-slate-500 mt-1 truncate max-w-full">
-            {auditResult.url}
-          </span>
+      {errorMsg && (
+        <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2">
+          <AlertCircle size={16} className="text-red-600 shrink-0" />
+          <span>{errorMsg}</span>
         </div>
+      )}
 
-        {/* 4 Pillars Breakdown (8 Cols) */}
-        <div className="md:col-span-8 bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
-            Audit Category Breakdown
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              { label: 'Meta & Search Snippets', score: auditResult.breakdown?.metaTags || 95, desc: 'Title tags, meta descriptions, and length limits' },
-              { label: 'Content Architecture', score: auditResult.breakdown?.contentStructure || 90, desc: 'H1 presence, H2 subheadings, hierarchy' },
-              { label: 'Technical SEO & Assets', score: auditResult.breakdown?.technical || 94, desc: 'Image alt tags, canonical links, indexability' },
-              { label: 'Open Graph & Social', score: auditResult.breakdown?.socialGraph || 88, desc: 'Facebook & Twitter rich sharing metadata' },
-            ].map((cat, i) => (
-              <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50/60">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-semibold text-slate-800">{cat.label}</span>
-                  <span className="text-xs font-bold text-slate-900">{cat.score}%</span>
-                </div>
-                <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden mb-2">
-                  <div
-                    className="h-full bg-brand-violet rounded-full transition-all duration-500"
-                    style={{ width: `${cat.score}%` }}
-                  />
-                </div>
-                <span className="text-[11px] text-slate-500 leading-tight block">
-                  {cat.desc}
-                </span>
+      {activeTab === 'audit' ? (
+        <>
+          {/* URL Search Bar */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <form onSubmit={handleAnalyze} className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Enter website URL (e.g., https://yourbrand.com)"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className="w-full text-sm rounded-lg border border-slate-300 pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
+                />
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Detailed Diagnostics & Recommendations */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* On-Page Inspector (7 Cols) */}
-        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <FileCode size={18} className="text-brand-violet" />
-            Detected Page Metadata & Structure
-          </h3>
-
-          <div className="space-y-3 text-xs">
-            {/* Title */}
-            <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
-              <div className="flex items-center justify-between font-semibold text-slate-700 mb-1">
-                <span>Page Title:</span>
-                <span className="text-slate-500 font-mono">
-                  {auditResult.details?.titleLength || auditResult.details?.title?.length} chars
-                </span>
-              </div>
-              <p className="text-slate-900 font-medium">{auditResult.details?.title}</p>
-            </div>
-
-            {/* Meta Description */}
-            <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
-              <div className="flex items-center justify-between font-semibold text-slate-700 mb-1">
-                <span>Meta Description:</span>
-                <span className="text-slate-500 font-mono">
-                  {auditResult.details?.metaDescriptionLength || auditResult.details?.metaDescription?.length} chars
-                </span>
-              </div>
-              <p className="text-slate-700">{auditResult.details?.metaDescription}</p>
-            </div>
-
-            {/* Technical Quick Stats */}
-            <div className="grid grid-cols-3 gap-2 pt-2">
-              <div className="p-2.5 rounded-lg border border-slate-200 bg-white text-center">
-                <span className="block text-slate-400 text-[10px] uppercase font-semibold">H1 Tags</span>
-                <span className="text-base font-bold text-slate-900">
-                  {auditResult.details?.h1Tags?.length || 1}
-                </span>
-              </div>
-              <div className="p-2.5 rounded-lg border border-slate-200 bg-white text-center">
-                <span className="block text-slate-400 text-[10px] uppercase font-semibold">H2 Tags</span>
-                <span className="text-base font-bold text-slate-900">
-                  {auditResult.details?.h2Count || 6}
-                </span>
-              </div>
-              <div className="p-2.5 rounded-lg border border-slate-200 bg-white text-center">
-                <span className="block text-slate-400 text-[10px] uppercase font-semibold">Images Without Alt</span>
-                <span
-                  className={`text-base font-bold ${
-                    auditResult.details?.imagesWithoutAlt > 0 ? 'text-amber-600' : 'text-emerald-600'
-                  }`}
-                >
-                  {auditResult.details?.imagesWithoutAlt || 0}
-                </span>
-              </div>
-            </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-brand-violet hover:bg-brand-violet/90 text-white font-medium text-sm transition-all disabled:opacity-50 whitespace-nowrap"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="animate-spin" size={16} />
+                    Analyzing Page...
+                  </>
+                ) : (
+                  <>
+                    <Search size={16} />
+                    Audit Webpage
+                  </>
+                )}
+              </button>
+            </form>
           </div>
 
-          {/* Actionable Recommendations */}
-          <div className="pt-4 border-t border-slate-100">
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <Lightbulb size={16} className="text-amber-500" />
-              Prioritized Action Items
-            </h4>
-            <div className="space-y-2">
-              {auditResult.recommendations?.map((rec, i) => (
+          {/* Audit Results Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Main Diagnostics (7 Cols) */}
+            <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div>
+                  <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Target URL</span>
+                  <div className="text-sm font-mono font-semibold text-slate-800 break-all">{auditResult.url}</div>
+                </div>
                 <div
-                  key={i}
-                  className="p-3 rounded-lg border border-slate-200 flex items-start gap-3 bg-white"
+                  className={`px-4 py-2 rounded-xl border font-mono font-bold text-lg flex items-center gap-1.5 ${getScoreColor(
+                    auditResult.overallScore
+                  )}`}
                 >
-                  {rec.severity === 'high' ? (
-                    <XCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-                  ) : rec.severity === 'medium' ? (
-                    <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
-                  ) : (
-                    <CheckCircle size={16} className="text-brand-teal shrink-0 mt-0.5" />
-                  )}
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-800 leading-relaxed">{rec.text}</p>
-                    <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                      Impact: {rec.impact}
-                    </span>
+                  <span>Score:</span>
+                  <span>{auditResult.overallScore}/100</span>
+                </div>
+              </div>
+
+              {/* Elements summary */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                  <div className="text-xs text-slate-500">H1 Tags</div>
+                  <div className="text-base font-bold text-slate-900">{auditResult.meta?.h1Count ?? 1}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                  <div className="text-xs text-slate-500">H2 Tags</div>
+                  <div className="text-base font-bold text-slate-900">{auditResult.meta?.h2Count ?? 4}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                  <div className="text-xs text-slate-500">Images</div>
+                  <div className="text-base font-bold text-slate-900">{auditResult.meta?.imgCount ?? 12}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                  <div className="text-xs text-slate-500">Missing Alt</div>
+                  <div className={`text-base font-bold ${(auditResult.meta?.imgWithoutAlt ?? 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    {auditResult.meta?.imgWithoutAlt ?? 0}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
+              </div>
 
-        {/* Suggested Keywords & Opportunities (5 Cols) */}
-        <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <TrendingUp size={18} className="text-brand-teal" />
-              High-Opportunity Keyword Suggestions
-            </h3>
-          </div>
-          <p className="text-xs text-slate-500">
-            Keywords extracted based on your domain context with favorable search volume to competition ratios.
-          </p>
-
-          <div className="space-y-2.5">
-            {auditResult.suggestedKeywords?.map((kw, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-lg border border-slate-100 bg-slate-50/70 hover:bg-slate-100 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-slate-900">{kw.keyword}</span>
-                  <span className="text-[11px] font-mono font-semibold text-brand-violet">
-                    {kw.relevance}
-                  </span>
+              {/* Meta details */}
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="font-semibold text-slate-700 block mb-0.5">Meta Title:</span>
+                  <div className="p-2.5 rounded-lg bg-slate-50 text-slate-800 border border-slate-100">
+                    {auditResult.meta?.title || 'No meta title detected'}
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <span>Vol: {kw.searchVolume}</span>
-                  <span
-                    className={`font-medium ${
-                      kw.competition === 'Low'
-                        ? 'text-emerald-600'
-                        : kw.competition === 'Medium'
-                        ? 'text-amber-600'
-                        : 'text-red-500'
-                    }`}
-                  >
-                    Comp: {kw.competition}
-                  </span>
+                <div>
+                  <span className="font-semibold text-slate-700 block mb-0.5">Meta Description:</span>
+                  <div className="p-2.5 rounded-lg bg-slate-50 text-slate-800 border border-slate-100">
+                    {auditResult.meta?.metaDescription || 'No meta description detected'}
+                  </div>
                 </div>
               </div>
-            ))}
+
+              {/* Recommendations */}
+              <div className="pt-4 border-t border-slate-100 space-y-2">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Lightbulb size={16} className="text-amber-500" />
+                  Prioritized Recommendations
+                </h4>
+                <div className="space-y-1.5">
+                  {(auditResult.recommendations || []).map((rec, i) => (
+                    <div key={i} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/60 text-xs text-slate-700 flex items-start gap-2">
+                      <CheckCircle size={15} className="text-emerald-500 shrink-0 mt-0.5" />
+                      <span>{typeof rec === 'string' ? rec : rec.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Keyword Suggestions (5 Cols) */}
+            <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <TrendingUp size={18} className="text-brand-violet" />
+                Target Keywords & Search Volumes
+              </h3>
+              <p className="text-xs text-slate-500">
+                Identified commercial and informational search queries relevant to this domain.
+              </p>
+
+              <div className="space-y-2.5">
+                {(auditResult.keywordSuggestions || []).map((kw, idx) => (
+                  <div key={idx} className="p-3 rounded-lg border border-slate-100 bg-slate-50/70 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-slate-900">{kw.keyword}</span>
+                      <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
+                        {kw.intent}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500">
+                      <span>Volume: {kw.volume || kw.searchVolume}</span>
+                      <span className="font-semibold text-slate-700">Diff: {kw.difficulty || kw.competition}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* Keyword Clustering Tab */
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Sparkles size={16} className="text-brand-violet" />
+              AI Semantic Keyword Cluster Mapping
+            </h3>
+            <p className="text-xs text-slate-500">
+              Provide seed keywords or topic areas. The SEO Agent will cluster them by search intent (Commercial, Transactional, Informational) and pinpoint competitor content gaps.
+            </p>
+
+            <form onSubmit={handleKeywordResearch} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Seed Topics & Keywords</label>
+                <input
+                  type="text"
+                  value={seedKeywords}
+                  onChange={(e) => setSeedKeywords(e.target.value)}
+                  placeholder="e.g. B2B marketing automation, AI poster creator, local SEO software"
+                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={researchingKeywords}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-violet hover:bg-brand-violet/90 text-white font-medium text-xs transition-all disabled:opacity-50"
+              >
+                {researchingKeywords ? (
+                  <>
+                    <RefreshCw className="animate-spin" size={15} />
+                    Clustering Keywords...
+                  </>
+                ) : (
+                  <>
+                    <Target size={15} />
+                    Map Keyword Clusters
+                  </>
+                )}
+              </button>
+            </form>
           </div>
 
-          <div className="p-3 rounded-lg bg-brand-violet/5 border border-brand-violet/10 text-xs text-brand-violet">
-            💡 <strong>Pro Tip:</strong> Click &quot;AI Blog Generator&quot; to generate an authoritative 2,000-word article for any of these target keywords automatically.
-          </div>
+          {keywordClusterResult && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-7 space-y-4">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Discovered Keyword Clusters</h4>
+                <div className="space-y-3">
+                  {(keywordClusterResult.keywordClusters || []).map((cluster, idx) => (
+                    <div key={idx} className="bg-white p-5 rounded-xl border border-slate-200 space-y-2 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-brand-navy">{cluster.clusterName}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                          {cluster.intent}
+                        </span>
+                      </div>
+                      <div className="text-xs font-mono text-purple-700 font-semibold">
+                        Primary: {cluster.primaryKeyword} ({cluster.volumeEstimate} | {cluster.difficulty})
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {(cluster.secondaryKeywords || []).map((skw, i) => (
+                          <span key={i} className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                            {skw}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 space-y-4">
+                <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3 shadow-xs">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Content Gap Opportunities</h4>
+                  <ul className="space-y-2 text-xs text-slate-700">
+                    {(keywordClusterResult.contentGapOpportunities || []).map((gap, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <Sparkles size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                        <span>{gap}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3 shadow-xs">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Technical SEO Recommendations</h4>
+                  <ul className="space-y-2 text-xs text-slate-700">
+                    {(keywordClusterResult.technicalRecommendations || []).map((rec, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <CheckCircle size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

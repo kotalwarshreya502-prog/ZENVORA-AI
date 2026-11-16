@@ -37,8 +37,9 @@ export const CalendarPage = () => {
     setLoading(true);
     try {
       const res = await api.getCalendarEvents();
-      if (res && res.data) {
-        setEvents(res.data);
+      const loaded = res?.data?.events || res?.events || (Array.isArray(res?.data) ? res.data : []);
+      if (loaded && loaded.length > 0) {
+        setEvents(loaded);
       }
     } catch (err) {
       console.error('Error fetching calendar events:', err);
@@ -96,21 +97,7 @@ export const CalendarPage = () => {
         contentType: newPlatform === 'blog' ? 'blog' : 'post',
       });
 
-      if (res && res.data) {
-        setEvents([...events, res.data]);
-      } else {
-        setEvents([
-          ...events,
-          {
-            _id: `ev-${Date.now()}`,
-            title: newTitle,
-            platform: newPlatform,
-            scheduledFor: scheduledDateTime,
-            status: 'scheduled',
-            contentType: newPlatform === 'blog' ? 'blog' : 'post',
-          },
-        ]);
-      }
+      await fetchEvents();
       setShowScheduleModal(false);
       setNewTitle('');
     } catch (err) {
@@ -354,7 +341,7 @@ export const CalendarPage = () => {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="e.g. 5 Trends in AI Marketing for Q2"
-                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
                   required
                 />
               </div>

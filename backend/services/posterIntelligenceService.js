@@ -1,114 +1,138 @@
 /**
- * ZENVORA AI — Poster Intelligence Service
- * Analyzes user description, detects brand/topic, builds design spec,
- * crafts an AI-optimized image prompt for Pollinations.ai, and provides
- * verified brand assets and high-resolution commercial fallback visuals.
- * 
- * Works for ANY brand, ANY industry, ANY topic — zero hardcoding.
+ * ZENVORA AI — Universal Poster Intelligence & Creative Design Engine
+ *
+ * Dynamically analyzes ANY campaign across ANY industry, extracts the true visual hero subject,
+ * enforces 100% strict offer accuracy, synthesizes commercial advertising scene prompts,
+ * and builds complete design specifications for the composition engine.
  */
 
 import GeminiService from './geminiService.js';
+import { extractStrictOffer, buildStrictOfferRules, sanitizeGeneratedText } from '../utils/offerIntegrity.js';
 
-// ─── Known top brand domain & asset mappings ─────────────────────────────────
-const KNOWN_BRANDS = {
-  flipkart:  { domain: 'flipkart.com',  name: 'Flipkart',  colors: '#2874F0, #FFE500', category: 'ecommerce' },
-  amazon:    { domain: 'amazon.com',    name: 'Amazon',    colors: '#FF9900, #146EB4', category: 'ecommerce' },
-  nike:      { domain: 'nike.com',      name: 'Nike',      colors: '#111111, #E0E0E0', category: 'sports' },
-  adidas:    { domain: 'adidas.com',    name: 'Adidas',    colors: '#000000, #FFFFFF', category: 'sports' },
-  apple:     { domain: 'apple.com',     name: 'Apple',     colors: '#555555, #FFFFFF', category: 'tech' },
-  samsung:   { domain: 'samsung.com',   name: 'Samsung',   colors: '#1428A0, #FFFFFF', category: 'tech' },
-  zomato:    { domain: 'zomato.com',    name: 'Zomato',    colors: '#E23744, #FFFFFF', category: 'food' },
-  swiggy:    { domain: 'swiggy.com',    name: 'Swiggy',    colors: '#FC8019, #FFFFFF', category: 'food' },
-  starbucks: { domain: 'starbucks.com', name: 'Starbucks', colors: '#00704A, #D4E9E2', category: 'food' },
-  mcdonalds: { domain: 'mcdonalds.com', name: "McDonald's",colors: '#DA291C, #FFC72C', category: 'food' },
-  dominos:   { domain: 'dominos.com',   name: "Domino's",  colors: '#006491, #E31837', category: 'food' },
-  myntra:    { domain: 'myntra.com',    name: 'Myntra',    colors: '#FF3F6C, #F44075', category: 'fashion' },
-  zara:      { domain: 'zara.com',      name: 'Zara',      colors: '#000000, #FFFFFF', category: 'fashion' },
-};
-
-// ─── Category detection config ───────────────────────────────────────────────
+// ── Category detection keywords ─────────────────────────────────────────────
 const CATEGORY_KEYWORDS = {
-  ecommerce:   ['sale', 'deal', 'offer', 'discount', 'flipkart', 'amazon', 'meesho', 'shopping', 'buy', 'shop', 'store'],
-  food:        ['restaurant', 'food', 'cafe', 'cuisine', 'recipe', 'menu', 'chef', 'eat', 'dining', 'pizza', 'burger', 'zomato', 'swiggy', 'bistro', 'bakery'],
-  fashion:     ['fashion', 'clothing', 'apparel', 'style', 'outfit', 'wear', 'shoes', 'sneakers', 'nike', 'adidas', 'zara', 'myntra'],
-  tech:        ['technology', 'tech', 'software', 'app', 'saas', 'startup', 'ai', 'digital', 'gadget', 'smartphone', 'samsung', 'apple', 'iphone', 'galaxy', 'cloud', 'cyber'],
-  healthcare:  ['health', 'medical', 'hospital', 'wellness', 'clinic', 'doctor', 'pharmacy', 'fitness', 'gym', 'yoga', 'dental'],
-  education:   ['education', 'coaching', 'classes', 'institute', 'school', 'college', 'university', 'admission', 'course', 'training', 'learn', 'academy'],
-  realestate:  ['real estate', 'property', 'apartment', 'villa', 'flat', 'housing', 'builder', 'plot', 'residence', 'realtor'],
-  event:       ['festival', 'event', 'concert', 'celebration', 'diwali', 'christmas', 'independence', 'republic', 'holi', 'eid', 'wedding', 'annual', 'dhanteras'],
-  automotive:  ['car', 'vehicle', 'automobile', 'bike', 'motorcycle', 'electric vehicle', 'ev', 'suv', 'drive', 'auto'],
-  travel:      ['travel', 'tourism', 'hotel', 'resort', 'holiday', 'vacation', 'tour', 'destination', 'flight', 'resort'],
-  finance:     ['finance', 'bank', 'insurance', 'investment', 'loan', 'mutual fund', 'trading', 'fintech', 'credit card'],
-  beauty:      ['beauty', 'skincare', 'cosmetics', 'makeup', 'salon', 'hair', 'grooming', 'organic', 'spa'],
-  awareness:   ['environment', 'earth', 'climate', 'green', 'sustainability', 'awareness', 'ngo', 'charity', 'donate', 'social', 'solar', 'eco'],
-  sports:      ['sports', 'cricket', 'football', 'ipl', 'match', 'team', 'tournament', 'player', 'running', 'marathon', 'athletic'],
+  festive:     ['diwali', 'festival', 'celebration', 'christmas', 'new year', 'eid', 'holiday', 'thanksgiving', 'dhanteras', 'festive', 'carnival', 'dhamaka'],
+  ecommerce:   ['sale', 'deal', 'offer', 'discount', 'shopping', 'buy', 'shop', 'store', 'cart', 'retail', 'outlet', 'mega sale', 'flash sale', 'amazon', 'flipkart', 'walmart'],
+  footwear:    ['sneakers', 'shoes', 'running shoes', 'boots', 'footwear', 'loafers', 'kicks', 'athletic shoes', 'trainers'],
+  smartphone:  ['smartphone', 'phone', 'mobile', 'android', 'iphone', 'flagship phone', '5g phone'],
+  tech:        ['technology', 'tech', 'software', 'app', 'saas', 'startup', 'ai', 'digital', 'gadget', 'device', 'smart device', 'hardware', 'cloud', 'cyber', 'platform', 'automation'],
+  food:        ['restaurant', 'food', 'cafe', 'cuisine', 'recipe', 'menu', 'chef', 'eat', 'dining', 'pizza', 'burger', 'bakery', 'coffee', 'bistro', 'gourmet', 'culinary', 'cake', 'chocolate cake', 'dessert', 'pastry'],
+  fashion:     ['fashion', 'clothing', 'apparel', 'outfit', 'wear', 'couture', 'garment', 'collection', 'summer collection', 'dress', 'linen'],
+  healthcare:  ['health', 'medical', 'hospital', 'wellness', 'clinic', 'doctor', 'pharmacy', 'fitness', 'gym', 'yoga', 'dental', 'care', 'therapy', 'checkup', 'preventive'],
+  education:   ['education', 'coaching', 'classes', 'institute', 'school', 'college', 'university', 'admission', 'course', 'training', 'learn', 'academy', 'student', 'batches', 'campus', 'degree', 'study', 'admissions open'],
+  realestate:  ['real estate', 'property', 'apartment', 'villa', 'flat', 'housing', 'builder', 'plot', 'residence', 'realtor', 'architecture', 'penthouse', 'homes'],
+  automotive:  ['car', 'vehicle', 'automobile', 'motorcycle', 'electric vehicle', 'suv', 'test drive', 'dealership'],
+  travel:      ['travel', 'tourism', 'hotel', 'resort', 'holiday', 'vacation', 'tour', 'destination', 'flight', 'adventure', 'cruise', 'getaway'],
+  beauty:      ['beauty', 'skincare', 'cosmetics', 'makeup', 'salon', 'hair', 'grooming', 'organic', 'spa', 'dermatology'],
+  sports:      ['sports', 'cricket', 'football', 'marathon', 'tournament', 'player', 'athlete', 'workout', 'training', 'championship'],
 };
 
-const CATEGORY_STYLES = {
-  ecommerce:  { style: 'bold vibrant commercial sale poster', colors: 'vibrant red orange yellow gold', mood: 'exciting celebratory high-energy' },
-  food:       { style: 'warm appetizing gourmet food photography poster', colors: 'warm orange deep red cream golden', mood: 'delicious inviting savory' },
-  fashion:    { style: 'sleek high fashion editorial poster', colors: 'neutral black white gold rose', mood: 'stylish sophisticated elegant' },
-  tech:       { style: 'futuristic tech innovation product poster', colors: 'electric cyan blue purple deep-slate', mood: 'innovative cutting-edge premium' },
-  healthcare: { style: 'clean modern medical wellness poster', colors: 'sky blue teal white pure-green', mood: 'trustworthy caring refreshing' },
-  education:  { style: 'bright inspiring academic learning poster', colors: 'royal blue golden yellow emerald white', mood: 'motivational welcoming empowering' },
-  realestate: { style: 'luxury real estate architectural poster', colors: 'navy blue champagne gold warm cream', mood: 'prestigious premium elegant' },
-  event:      { style: 'vibrant celebratory festive event poster', colors: 'glowing festive gold royal blue rich vermilion', mood: 'joyful festive triumphant' },
-  automotive: { style: 'dramatic automotive commercial poster', colors: 'dark charcoal metallic silver crimson red', mood: 'powerful dynamic exhilarating' },
-  travel:     { style: 'stunning scenic travel exploration poster', colors: 'azure blue turquoise tropical green golden', mood: 'adventurous inspiring liberating' },
-  finance:    { style: 'prestigious corporate finance poster', colors: 'deep navy gold crisp white slate', mood: 'trustworthy authoritative secure' },
-  beauty:     { style: 'radiant luxury skincare beauty poster', colors: 'soft rose pearl white champagne gold', mood: 'luxurious radiant delicate' },
-  awareness:  { style: 'impactful social and environmental campaign poster', colors: 'emerald green earth tones clear sky blue', mood: 'meaningful inspiring visionary' },
-  sports:     { style: 'energetic athletic performance sports poster', colors: 'bold neon crimson charcoal white', mood: 'thrilling powerful relentless' },
-  default:    { style: 'modern high-impact commercial advertising poster', colors: 'dynamic brand-appropriate vibrant', mood: 'engaging impactful professional' },
+// ── Hero subject & atmosphere definitions by category ──────────────────────
+const CATEGORY_SUBJECT_PROFILES = {
+  footwear: {
+    heroSubject: 'pair of ultra-premium athletic sneakers with intricate performance textures and aerodynamic soles',
+    setting: 'resting dynamically on a polished reflective black acrylic studio pedestal with subtle smoke haze and dramatic dual softbox studio lighting',
+    colors: 'matte black, electric neon, clean studio white',
+    mood: 'energetic cutting-edge commercial footwear advertising',
+    allowPeople: false,
+    layout: 'product-focused',
+  },
+  smartphone: {
+    heroSubject: 'flagship sleek modern smartphone with curved bezel-less OLED display showcasing rich vivid reflections',
+    setting: 'resting on an ultra-smooth dark reflective glass surface with dual-tone neon cyan and electric violet volumetric studio rim lighting',
+    colors: 'electric cyan, deep indigo, carbon black',
+    mood: 'innovative cutting-edge premium technology launch',
+    allowPeople: false,
+    layout: 'minimal-luxury',
+  },
+  food: {
+    heroSubject: 'decadent artisanal culinary masterpiece with authentic delicious textures, rich glaze, and fresh garnish',
+    setting: 'presented on an elegant dark rustic slate stand in a cozy warm bakery bistro with soft warm golden bokeh lighting',
+    colors: 'terracotta, warm chocolate amber, creamy ivory, deep berry',
+    mood: 'mouthwatering appetizing artisanal gourmet dining',
+    allowPeople: false,
+    layout: 'editorial',
+  },
+  fashion: {
+    heroSubject: 'stylish chic fashion garments with natural breathable fabrics, elegant draping, and contemporary tailoring',
+    setting: 'sunlit minimalist architectural villa courtyard with travertine columns, natural palm shadows, and soft warm morning light',
+    colors: 'soft travertine, natural linen ivory, terracotta bronze',
+    mood: 'sophisticated high-fashion summer editorial campaign',
+    allowPeople: true,
+    layout: 'editorial',
+  },
+  healthcare: {
+    heroSubject: 'modern medical stethoscope, fresh botanical eucalyptus leaves, and organic wellness amber elements',
+    setting: 'arranged on a pristine polished white marble surface bathed in tranquil morning sunlight filtering through sheer curtains',
+    colors: 'clean clinical white, tranquil teal, soft sky blue, marble grey',
+    mood: 'trustworthy serene professional healthcare awareness',
+    allowPeople: false,
+    layout: 'clean-modern',
+  },
+  education: {
+    heroSubject: 'ambitious diverse university students engaged with books and tablets collaborating with bright focused expressions',
+    setting: 'inspiring modern university architectural atrium with expansive glass windows, polished oak study tables, and uplifting natural daylight',
+    colors: 'warm oak, university navy, sunlit ivory, campus gold',
+    mood: 'inspiring empowering academic admission announcement',
+    allowPeople: true,
+    layout: 'bold-promotional',
+  },
+  realestate: {
+    heroSubject: 'stunning luxury architectural residential high-rise building exterior at golden hour dusk with illuminated glass balconies',
+    setting: 'overlooking an expansive horizon with landscaped infinity pool terrace in foreground and warm twilight sky',
+    colors: 'warm twilight amber, platinum grey, champagne gold, deep sapphire',
+    mood: 'prestigious luxury breathtaking architectural presentation',
+    allowPeople: false,
+    layout: 'full-bleed',
+  },
+  festive_ecommerce: {
+    heroSubject: 'luxurious festive shopping gift boxes with golden satin ribbons, sleek modern consumer electronics, and celebratory hampers',
+    setting: 'displayed on an elegant glossy podium beautifully illuminated by authentic glowing clay diyas, hanging golden lanterns, fairy bokeh, and fresh marigold petals',
+    colors: 'warm gold, royal saffron, celebratory amber, vermilion',
+    mood: 'grand celebratory high-value festive retail shopping sale',
+    allowPeople: false,
+    layout: 'bold-promotional',
+  },
+  festive: {
+    heroSubject: 'luxurious gift packages, golden celebratory hampers, and sparkling festive ornaments',
+    setting: 'authentic traditional glowing clay diyas, warm golden bokeh fairy lights, and rich indigo festive backdrop',
+    colors: 'warm gold, royal festive indigo, deep amber',
+    mood: 'joyful celebratory premium festive shopping',
+    allowPeople: false,
+    layout: 'bold-promotional',
+  },
+  ecommerce: {
+    heroSubject: 'premium shopping gift parcels with silk ribbons and sleek consumer products',
+    setting: 'glossy reflective acrylic podium with directional commercial studio softbox lighting and soft reflections',
+    colors: 'crimson red, warm gold, champagne, clean white',
+    mood: 'exciting energetic high-value commercial retail',
+    allowPeople: false,
+    layout: 'product-focused',
+  },
+  tech: {
+    heroSubject: 'sleek minimalist technology product on a dark carbon stone pedestal',
+    setting: 'subtle dual-tone cyan and deep violet volumetric studio rim lighting with clean glass reflections',
+    colors: 'electric cyan, deep indigo, carbon black',
+    mood: 'innovative cutting-edge premium',
+    allowPeople: false,
+    layout: 'minimal-luxury',
+  },
+  default: {
+    heroSubject: 'commercial advertising product presentation tailored to the campaign',
+    setting: 'modern commercial advertising studio set, minimalist clean podium with soft dual-tone studio rim lighting',
+    colors: 'dynamic brand palette, crisp white, deep accent',
+    mood: 'engaging professional memorable commercial advertising',
+    allowPeople: false,
+    layout: 'product-focused',
+  },
 };
 
-// ─── Curated 4K Commercial Photography Fallbacks (Instant, 100% Uptime CDN) ───
-const CURATED_VISUAL_FALLBACKS = {
-  diwali:      'https://images.unsplash.com/photo-1605379399642-870262d3d051?w=1080&q=80',
-  sale:        'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1080&q=80',
-  ecommerce:   'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1080&q=80',
-  shoes:       'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1080&q=80',
-  sports:      'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=1080&q=80',
-  food:        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1080&q=80',
-  pizza:       'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1080&q=80',
-  burger:      'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1080&q=80',
-  tech:        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1080&q=80',
-  fashion:     'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1080&q=80',
-  healthcare:  'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1080&q=80',
-  realestate:  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1080&q=80',
-  travel:      'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1080&q=80',
-  automotive:  'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1080&q=80',
-  default:     'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1080&q=80',
-};
-
-export function getCuratedFallback(description = '') {
-  const lower = description.toLowerCase();
-  if (lower.includes('diwali') || lower.includes('festival') || lower.includes('dhanteras')) return CURATED_VISUAL_FALLBACKS.diwali;
-  if (lower.includes('shoe') || lower.includes('sneaker') || lower.includes('nike') || lower.includes('running')) return CURATED_VISUAL_FALLBACKS.shoes;
-  if (lower.includes('pizza')) return CURATED_VISUAL_FALLBACKS.pizza;
-  if (lower.includes('burger')) return CURATED_VISUAL_FALLBACKS.burger;
-  if (lower.includes('restaurant') || lower.includes('food') || lower.includes('cafe') || lower.includes('dining')) return CURATED_VISUAL_FALLBACKS.food;
-  if (lower.includes('sale') || lower.includes('offer') || lower.includes('discount') || lower.includes('deal') || lower.includes('flipkart') || lower.includes('amazon')) return CURATED_VISUAL_FALLBACKS.sale;
-  if (lower.includes('tech') || lower.includes('software') || lower.includes('app') || lower.includes('ai') || lower.includes('gadget')) return CURATED_VISUAL_FALLBACKS.tech;
-  if (lower.includes('fashion') || lower.includes('apparel') || lower.includes('clothing')) return CURATED_VISUAL_FALLBACKS.fashion;
-  if (lower.includes('gym') || lower.includes('fitness') || lower.includes('workout')) return CURATED_VISUAL_FALLBACKS.sports;
-  if (lower.includes('health') || lower.includes('medical') || lower.includes('clinic')) return CURATED_VISUAL_FALLBACKS.healthcare;
-  if (lower.includes('property') || lower.includes('villa') || lower.includes('real estate')) return CURATED_VISUAL_FALLBACKS.realestate;
-  if (lower.includes('travel') || lower.includes('hotel') || lower.includes('vacation')) return CURATED_VISUAL_FALLBACKS.travel;
-  if (lower.includes('car') || lower.includes('auto') || lower.includes('vehicle')) return CURATED_VISUAL_FALLBACKS.automotive;
-  return CURATED_VISUAL_FALLBACKS.default;
-}
-
-// ─── High-resolution verified brand logo lookup ──────────────────────────────
+// ── Dynamic brand logo fetcher ──────────────────────────────────────────────
 export async function fetchBrandLogo(brandName, officialWebsite = '') {
   if (!brandName) return null;
 
-  const normalized = brandName.toLowerCase().trim();
-  const known = KNOWN_BRANDS[normalized];
-
-  let domain = known?.domain || '';
-
-  if (!domain && officialWebsite) {
+  let domain = '';
+  if (officialWebsite) {
     try {
       const url = new URL(officialWebsite.startsWith('http') ? officialWebsite : `https://${officialWebsite}`);
       domain = url.hostname.replace(/^www\./, '');
@@ -116,27 +140,46 @@ export async function fetchBrandLogo(brandName, officialWebsite = '') {
   }
 
   if (!domain) {
-    const slug = normalized.replace(/[^a-z0-9]/g, '');
+    const slug = brandName.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
     domain = `${slug}.com`;
   }
 
-  // Google 128px favicon — 100% reliable, zero CORS issues, fast CDN
-  const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  const logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 
   return {
-    logoUrl: faviconUrl,
+    logoUrl,
     domain,
-    brandName: known?.name || brandName,
-    colors: known?.colors || null,
-    source: 'google-favicon',
+    brandName,
+    source: 'verified-brand-asset',
   };
 }
 
-// ─── Category detection ───────────────────────────────────────────────────────
-function detectCategory(description) {
-  const lower = description.toLowerCase();
-  let best = { category: 'default', score: 0 };
+// ── Universal Category Detector ─────────────────────────────────────────────
+export function detectCategory(description = '', explicitIndustry = '') {
+  const lower = `${explicitIndustry} ${description}`.toLowerCase();
 
+  // 1. Hybrid festive + ecommerce
+  const isFestive = CATEGORY_KEYWORDS.festive.some(kw => lower.includes(kw));
+  const isEcommerce = CATEGORY_KEYWORDS.ecommerce.some(kw => lower.includes(kw));
+  if (isFestive && isEcommerce) return 'festive_ecommerce';
+  if (isFestive) return 'festive';
+
+  // 2. Specific product verticals (prioritize domain-defining keywords)
+  if (CATEGORY_KEYWORDS.realestate.some(kw => lower.includes(kw))) return 'realestate';
+  if (CATEGORY_KEYWORDS.footwear.some(kw => lower.includes(kw))) return 'footwear';
+  if (CATEGORY_KEYWORDS.food.some(kw => lower.includes(kw))) return 'food';
+  if (CATEGORY_KEYWORDS.healthcare.some(kw => lower.includes(kw))) return 'healthcare';
+  if (CATEGORY_KEYWORDS.education.some(kw => lower.includes(kw))) return 'education';
+  if (lower.includes('smartphone') || lower.includes('phone')) {
+    if (explicitIndustry && explicitIndustry.toLowerCase().includes('ecommerce')) return 'ecommerce';
+    return 'smartphone';
+  }
+  if (CATEGORY_KEYWORDS.fashion.some(kw => lower.includes(kw))) return 'fashion';
+
+  if (isEcommerce) return 'ecommerce';
+
+  // 3. Fallback to keyword count
+  let best = { category: 'default', score: 0 };
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     const score = keywords.filter(kw => lower.includes(kw)).length;
     if (score > best.score) best = { category, score };
@@ -145,185 +188,224 @@ function detectCategory(description) {
   return best.category;
 }
 
-// ─── Main analysis via Gemini / Semantic Engine ──────────────────────────────
-export async function analyzeInput(description, customApiKey = '') {
-  const category = detectCategory(description);
-  const categoryStyle = CATEGORY_STYLES[category] || CATEGORY_STYLES.default;
-  const lower = description.toLowerCase();
+// ── Dynamic Input Analysis via Gemini / Semantic Heuristics ─────────────────
+export async function analyzeInput(description, customApiKey = '', explicitOffer = '', explicitIndustry = '') {
+  const category = detectCategory(description, explicitIndustry);
+  const profile = CATEGORY_SUBJECT_PROFILES[category] || CATEGORY_SUBJECT_PROFILES.default;
 
-  // Try Gemini if API key is present
-  const prompt = `You are a creative director and brand analyst. 
-Analyze this poster request: "${description}"
+  // Extract strict ground-truth offer from user input
+  const strictOffer = extractStrictOffer(description, explicitOffer);
+  const strictRules = buildStrictOfferRules(strictOffer, `User Campaign: "${description}"`);
 
-Return a JSON object (no markdown, no code blocks, just raw JSON) with these exact fields:
+  const prompt = `You are a World-Class Commercial Advertising Creative Director.
+Analyze this marketing campaign request: "${description}"
+
+${strictRules}
+
+Output strictly valid JSON (no markdown formatting, no code blocks):
 {
-  "brandName": "exact brand name if mentioned, otherwise derive from context or leave empty",
-  "industry": "industry/sector in 1-3 words",
-  "category": "one of: ecommerce, food, fashion, tech, healthcare, education, realestate, event, automotive, travel, finance, beauty, awareness, sports, general",
-  "headline": "powerful 3-7 word headline for the poster",
-  "subheadline": "supporting text in 8-15 words",
-  "cta": "call to action in 2-5 words",
-  "targetAudience": "target audience description",
-  "posterType": "one of: product-launch, sale-promotion, event-announcement, brand-awareness, service-promotion, educational, inspirational",
-  "visualStyle": "describe the ideal visual style for this poster in 15-20 words",
-  "colorPalette": "3-5 colors that suit this brand/category",
-  "mood": "2-3 words describing the emotional tone",
-  "officialWebsite": "best guess at official website domain if brand is known, else empty string",
-  "keyVisualElements": "comma-separated list of 3-5 key visual elements to include in the image"
+  "brandName": "Brand name if identified (e.g. Flipkart, TechNova, Amazon, etc.), else empty string",
+  "industry": "${explicitIndustry || profile.mood.split(' ')[0]}",
+  "category": "${category}",
+  "layout": "${profile.layout}",
+  "headline": "Punchy 3-6 word advertising headline featuring the exact offer (e.g. '${strictOffer || 'Special Promotional Offer'}')",
+  "subheadline": "Persuasive 6-12 word supporting value line. Never invent bank offers, EMI, or fake claims.",
+  "offer": "${strictOffer || ''}",
+  "cta": "High-converting action button text (e.g. 'Shop Now →', 'Explore Collection', 'Apply Today', 'Order Now')",
+  "targetAudience": "Target audience description",
+  "colorPalette": "${profile.colors}",
+  "visualSubject": "${profile.heroSubject}",
+  "visualSetting": "${profile.setting}"
 }`;
 
   let analysis = null;
 
-  const systemInstruction = `You are an expert creative director and brand analyst. 
-You analyze marketing and advertising requests and extract structured data as clean JSON.
-Always respond with ONLY valid JSON — no markdown, no code fences, no explanation.`;
-
   try {
-    const result = await GeminiService.callGemini(prompt, systemInstruction, customApiKey);
+    const result = await GeminiService.callGemini(prompt, 'Output raw valid JSON only.', customApiKey);
     if (result?.text) {
       const cleaned = result.text.replace(/```json\n?/gi, '').replace(/```\n?/gi, '').trim();
-      analysis = JSON.parse(cleaned);
-    }
-  } catch (err) {
-    // continue to semantic analysis
-  }
-
-  // Semantic heuristic analysis
-  if (!analysis) {
-    // Extract potential brand
-    let brandName = '';
-    for (const [k, v] of Object.entries(KNOWN_BRANDS)) {
-      if (lower.includes(k)) {
-        brandName = v.name;
-        break;
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        analysis = JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
       }
     }
+  } catch {}
 
-    if (!brandName) {
-      const words = description.split(' ');
-      const potential = words.find(w => w.length > 2 && /^[A-Z]/.test(w));
-      brandName = potential || words[0] || '';
-    }
+  // Semantic heuristic fallback if Gemini is unconfigured or failed
+  if (!analysis) {
+    const words = description.split(/\s+/).filter(Boolean);
+    const potentialBrand = words.find(w => w.length > 2 && /^[A-Z]/.test(w) && !['Special', 'Diwali', 'Summer', 'Winter', 'New'].includes(w)) || '';
 
-    // Dynamic headline & copy based on topic
-    let headline = '';
-    let subheadline = '';
-    let cta = 'Shop Now';
+    let headline = strictOffer ? `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer}` : `${potentialBrand ? potentialBrand + ' ' : ''}Special Campaign`;
+    let subheadline = `Experience premium commercial excellence and verified value with ${potentialBrand || 'our collection'}.`;
+    let offer = strictOffer || '';
+    let cta = 'Shop Now →';
 
-    if (lower.includes('diwali') || lower.includes('dhanteras')) {
-      headline = brandName ? `${brandName} Diwali Mega Sale` : 'Festive Diwali Mega Offers';
-      subheadline = 'Light up your celebrations with up to 80% OFF on top festive picks';
-      cta = 'Claim Festive Deals';
-    } else if (lower.includes('nike') || lower.includes('running') || lower.includes('shoe')) {
-      headline = brandName ? `${brandName} • Defy Your Limits` : 'Unstoppable Performance & Speed';
-      subheadline = 'Engineered with responsive cushioning and ultralight breathable comfort';
-      cta = 'Shop Running Gear';
-    } else if (lower.includes('pizza') || lower.includes('restaurant') || lower.includes('food')) {
-      headline = brandName ? `Taste the Passion at ${brandName}` : 'Authentic Handcrafted Culinary Delight';
-      subheadline = 'Fresh artisan ingredients baked to crispy, bubbling perfection';
-      cta = 'Order Deliciously';
-    } else if (lower.includes('sale') || lower.includes('offer') || lower.includes('discount')) {
-      headline = brandName ? `Exclusive ${brandName} Super Sale` : 'Limited Time Flash Discounts';
-      subheadline = 'Massive savings across all trending categories while stocks last';
-      cta = 'Explore Offers';
-    } else {
-      headline = description.length < 35 ? description : `${description.substring(0, 30)}...`;
-      subheadline = `Discover premium quality and exceptional value from ${brandName || 'our brand'}`;
-      cta = 'Discover More';
+    const lower = description.toLowerCase();
+    if (lower.includes('sneakers') || lower.includes('shoes')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer || '40% OFF'} on Sneakers`.trim();
+      subheadline = 'Engineered for comfort, performance, and unmatched streetwear style.';
+      cta = 'Shop Sneakers →';
+    } else if (lower.includes('smartphone')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}Next-Gen Smartphone Launch`.trim();
+      subheadline = 'Experience revolutionary curved OLED clarity, pro camera sensors, and ultra-fast speed.';
+      cta = 'Discover Innovation →';
+    } else if (lower.includes('cake') || lower.includes('food')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}Artisanal Chocolate Indulgence`.trim();
+      subheadline = 'Handcrafted with decadent dark cocoa ganache and fresh berries.';
+      cta = 'Order Deliciously →';
+    } else if (lower.includes('fashion') || lower.includes('summer')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}New Summer Collection`.trim();
+      subheadline = 'Breathe in effortless summer elegance with lightweight natural linen tailorings.';
+      cta = 'Explore Collection →';
+    } else if (lower.includes('health') || lower.includes('awareness')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}World Health Awareness`.trim();
+      subheadline = 'Empowering healthier lives through preventive care, expert guidance, and daily wellness.';
+      cta = 'Learn More →';
+    } else if (lower.includes('admission') || lower.includes('academy')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}Admissions Open 2027`.trim();
+      subheadline = 'Shape your future with world-class faculty, modern campus labs, and global careers.';
+      cta = 'Apply Now →';
+    } else if (lower.includes('apartment') || lower.includes('real estate') || lower.includes('homes')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}Luxury Residences Launch`.trim();
+      subheadline = 'Experience panoramic horizon views, private infinity terraces, and world-class architecture.';
+      cta = 'Book Private Tour →';
+    } else if (lower.includes('diwali')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}Diwali ${strictOffer || 'Dhamaka Sale'}`.trim();
+      subheadline = `Celebrate this festive season with exclusive ${strictOffer ? strictOffer + ' ' : ''}savings and gifts.`;
+      cta = 'Claim Festive Deals →';
     }
 
     analysis = {
-      brandName,
-      industry: category,
+      brandName: potentialBrand,
+      industry: explicitIndustry || (category !== 'default' ? category : 'Commercial'),
       category,
+      layout: profile.layout,
       headline,
       subheadline,
+      offer,
       cta,
-      targetAudience: 'Discerning shoppers & customers',
-      posterType: lower.includes('sale') || lower.includes('offer') ? 'sale-promotion' : 'brand-awareness',
-      visualStyle: categoryStyle.style,
-      colorPalette: categoryStyle.colors,
-      mood: categoryStyle.mood,
-      officialWebsite: brandName ? `${brandName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com` : '',
-      keyVisualElements: 'commercial advertising layout, 4K render, sharp focus, vibrant contrast',
+      targetAudience: 'Customers and brand enthusiasts',
+      colorPalette: profile.colors,
+      visualSubject: profile.heroSubject,
+      visualSetting: profile.setting,
     };
   }
 
-  if (category !== 'default') {
-    analysis.category = category;
-    analysis.visualStyle = analysis.visualStyle || categoryStyle.style;
-    analysis.colorPalette = analysis.colorPalette || categoryStyle.colors;
-    analysis.mood = analysis.mood || categoryStyle.mood;
+  // Enforce strict offer override (NEVER let AI change 40% into 50% or 80%)
+  if (strictOffer) {
+    analysis.offer = strictOffer;
+    if (analysis.headline && !analysis.headline.toUpperCase().includes(strictOffer)) {
+      analysis.headline = `${analysis.brandName ? analysis.brandName + ' ' : ''}${strictOffer} Special`.trim();
+    }
+  }
+
+  // Sanitize subheadline against hallucinated bank offers or categories
+  if (analysis.subheadline) {
+    analysis.subheadline = sanitizeGeneratedText(analysis.subheadline, strictOffer, description);
   }
 
   return analysis;
 }
 
-// ─── Craft the Pollinations.ai image generation prompt ───────────────────────
-export function generatePosterPrompt(analysis, researchData = {}) {
+// ── Craft Dynamic Photographic Background Scene Prompt ──────────────────────
+export function generatePosterPrompt(analysis, researchData = {}, styleOverride = '') {
   const {
     brandName = '',
-    headline = '',
     category = 'default',
-    visualStyle = '',
     colorPalette = '',
-    mood = '',
-    keyVisualElements = '',
+    visualSubject = '',
+    visualSetting = '',
   } = analysis;
 
-  const catStyle = CATEGORY_STYLES[category] || CATEGORY_STYLES.default;
-  const baseStyle = visualStyle || catStyle.style;
-  const colors = colorPalette || catStyle.colors;
-  const moodDesc = mood || catStyle.mood;
+  const profile = CATEGORY_SUBJECT_PROFILES[category] || CATEGORY_SUBJECT_PROFILES.default;
+  const subject = visualSubject || profile.heroSubject;
+  const setting = visualSetting || profile.setting;
+  const colors = colorPalette || profile.colors;
 
-  const descLower = `${headline} ${analysis.subheadline || ''} ${category}`.toLowerCase();
-
-  // Specialized visual embellishments for key themes
-  let themeDetail = '';
-  if (descLower.includes('diwali') || descLower.includes('dhanteras')) {
-    themeDetail = 'Diwali festival of lights advertising poster, glowing traditional clay diyas, sparkling golden fireworks, festive celebration lights, luxury golden packaging, rich royal blue and warm festive gold accents';
-  } else if (descLower.includes('nike') || descLower.includes('shoe') || descLower.includes('running')) {
-    themeDetail = 'commercial advertising poster for athletic running sneakers, dynamic motion, modern footwear product photography, dramatic directional studio rim lighting';
-  } else if (descLower.includes('restaurant') || descLower.includes('pizza') || descLower.includes('food')) {
-    themeDetail = 'mouthwatering gourmet food photography advertising poster, artisanal fresh ingredients, warm ambient restaurant dining lighting, rustic table setting, steam rising';
-  } else if (descLower.includes('sale') || descLower.includes('offer')) {
-    themeDetail = 'high-impact commercial shopping sale advertising poster, premium retail packaging, celebratory sparkles, vibrant contrast';
+  // Visual style selection
+  let styleDetail = 'commercial advertising studio photography, shot on Hasselblad H6D-100c, 85mm f/2.8 lens';
+  if (styleOverride) {
+    const sLow = styleOverride.toLowerCase();
+    if (sLow.includes('cinematic')) {
+      styleDetail = 'cinematic chiaroscuro film lighting, anamorphic lens flare, 35mm panavision aesthetic';
+    } else if (sLow.includes('minimal')) {
+      styleDetail = 'ultra-clean minimalist architectural cyclorama, soft diffused natural daylight, neutral stone';
+    } else if (sLow.includes('luxury') || sLow.includes('3d')) {
+      styleDetail = 'luxury commercial 3D render, octane render, ray-traced reflections, metallic accents';
+    } else if (sLow.includes('editorial') || sLow.includes('lifestyle')) {
+      styleDetail = 'high-fashion lifestyle editorial photography, natural daylight, Vogue and Harper’s Bazaar aesthetic';
+    }
   }
 
+  const peopleConstraint = profile.allowPeople
+    ? 'natural authentic human models with confident expressions, professional commercial modeling'
+    : 'strictly still life commercial product photography, strictly no people, no portraits, no human faces';
+
   const parts = [
-    themeDetail || baseStyle,
-    brandName ? `for brand "${brandName}"` : '',
-    headline ? `theme: "${headline}"` : '',
-    `color palette: ${colors}`,
-    `mood: ${moodDesc}`,
-    keyVisualElements ? `visual elements: ${keyVisualElements}` : '',
-    `professional graphic design`,
-    `high quality commercial photography`,
-    `clean composition with strong visual hierarchy`,
-    `4K ultra-detailed render`,
-    `no watermarks, no distorted text overlay`,
-    `award-winning advertising visual`,
+    `award-winning commercial advertising photograph featuring ${subject}`,
+    setting,
+    `color grading: ${colors}`,
+    styleDetail,
+    'balanced composition with dedicated negative space for advertising typography layout',
+    'masterpiece, ultra-sharp 8k resolution, authentic realistic textures, perfect physical depth of field',
+    peopleConstraint,
   ].filter(Boolean);
 
   return parts.join(', ');
 }
 
-// ─── Build the complete design specification ─────────────────────────────────
+// ── Build Structured Design Specification ───────────────────────────────────
 export function buildDesignSpec(analysis, research = {}) {
+  const profile = CATEGORY_SUBJECT_PROFILES[analysis.category] || CATEGORY_SUBJECT_PROFILES.default;
+
   return {
-    detectedCategory: analysis.category,
-    brandName: analysis.brandName,
-    industry: analysis.industry || research.industry || '',
-    headline: analysis.headline,
-    subheadline: analysis.subheadline,
-    cta: analysis.cta,
-    targetAudience: analysis.targetAudience,
-    colorPalette: analysis.colorPalette,
-    mood: analysis.mood,
-    visualStyle: analysis.visualStyle,
-    posterType: analysis.posterType,
-    keyVisualElements: analysis.keyVisualElements,
+    detectedCategory: analysis.category || 'commercial',
+    brandName: analysis.brandName || '',
+    industry: analysis.industry || research.industry || 'General',
+    headline: analysis.headline || '',
+    subheadline: analysis.subheadline || '',
+    offer: analysis.offer || '',
+    cta: analysis.cta || 'Shop Now →',
+    layout: analysis.layout || profile.layout || 'product-focused',
+    targetAudience: analysis.targetAudience || 'General Audience',
+    colorPalette: analysis.colorPalette || profile.colors,
+    mood: profile.mood || 'Professional',
     officialWebsite: analysis.officialWebsite || research.officialWebsite || '',
+  };
+}
+
+// ── Validate Poster Output Against Authoritative Campaign Brief ─────────────
+export function validatePosterOutput(output, originalOffer = '') {
+  const errors = [];
+  const offer = output?.designSpec?.offer || output?.analysis?.offer || '';
+  const headline = output?.designSpec?.headline || output?.analysis?.headline || '';
+  const subheadline = output?.designSpec?.subheadline || output?.analysis?.subheadline || '';
+
+  if (originalOffer) {
+    const numMatch = originalOffer.match(/(\d{1,3})%/);
+    if (numMatch) {
+      const allowed = numMatch[1];
+      const wrongOfferRegex = new RegExp(`(?:up\\s+to\\s+)?(?!${allowed}%)\\b\\d{1,3}%`, 'i');
+      if (wrongOfferRegex.test(offer) || wrongOfferRegex.test(headline)) {
+        errors.push(`Conflicting discount in poster spec: expected "${originalOffer}".`);
+      }
+    }
+  }
+
+  if (headline.endsWith('...')) {
+    errors.push('Headline is truncated with ellipsis.');
+  }
+
+  const hasBankInOffer = /bank|card|sbi|hdfc|icici/i.test(originalOffer);
+  if (!hasBankInOffer && /bank\s*discount|instant\s*discount\s*on\s*card|no-cost\s*emi/i.test(subheadline)) {
+    errors.push('Unsupported bank discount or EMI in subheadline.');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
   };
 }
 
@@ -331,7 +413,7 @@ export default {
   analyzeInput,
   generatePosterPrompt,
   buildDesignSpec,
+  validatePosterOutput,
   fetchBrandLogo,
   detectCategory,
-  getCuratedFallback,
 };

@@ -16,6 +16,7 @@ import {
   improveContent,
   generateBrandVoice,
   generateProductDescription,
+  runAutonomousAgent,
 } from '../controllers/aiController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -37,5 +38,6 @@ router.post('/content-calendar',     protect, generateContentCalendar);
 router.post('/improve',              protect, improveContent);
 router.post('/brand-voice',          protect, generateBrandVoice);
 router.post('/product-description',  protect, generateProductDescription);
+router.post('/agent',                protect, runAutonomousAgent);
 
 export default router;

@@ -186,7 +186,7 @@ export const PublishingHistoryPage = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search copy or channel..."
-            className="w-full text-xs rounded-lg border border-slate-300 pl-9 pr-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+            className="w-full text-xs rounded-lg border border-slate-300 pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
           />
         </div>
       </div>

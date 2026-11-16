@@ -65,9 +65,7 @@ export const BrandGuidelinesPage = () => {
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
       console.error('Error saving guidelines:', err);
-      // Still show success in offline/hybrid mode
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3000);
+      alert(err?.message || 'Failed to save brand guidelines. Please check connection.');
     } finally {
       setSaving(false);
     }
@@ -171,7 +169,7 @@ export const BrandGuidelinesPage = () => {
                   type="text"
                   value={guidelines.brandName}
                   onChange={(e) => setGuidelines({ ...guidelines, brandName: e.target.value })}
-                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
                 />
               </div>
 
@@ -183,7 +181,7 @@ export const BrandGuidelinesPage = () => {
                   type="text"
                   value={guidelines.tagline}
                   onChange={(e) => setGuidelines({ ...guidelines, tagline: e.target.value })}
-                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
                 />
               </div>
             </div>
@@ -196,7 +194,7 @@ export const BrandGuidelinesPage = () => {
                 value={guidelines.toneOfVoice}
                 onChange={(e) => setGuidelines({ ...guidelines, toneOfVoice: e.target.value })}
                 rows={3}
-                className="w-full text-sm rounded-lg border border-slate-300 p-3 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                className="w-full text-sm rounded-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
               />
               <span className="text-[11px] text-slate-400 mt-1 block">
                 This prompt context is injected as system instructions for all Gemini AI generation calls.
@@ -211,7 +209,7 @@ export const BrandGuidelinesPage = () => {
                 value={guidelines.targetAudience}
                 onChange={(e) => setGuidelines({ ...guidelines, targetAudience: e.target.value })}
                 rows={3}
-                className="w-full text-sm rounded-lg border border-slate-300 p-3 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                className="w-full text-sm rounded-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
               />
             </div>
           </div>
@@ -232,7 +230,7 @@ export const BrandGuidelinesPage = () => {
                 onChange={(e) => setNewKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKeyword())}
                 placeholder="Add priority keyword (press Enter)..."
-                className="flex-1 text-xs rounded-lg border border-slate-300 p-2 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                className="flex-1 text-xs rounded-lg border border-slate-300 p-2 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
               />
               <button
                 type="button"
@@ -284,7 +282,7 @@ export const BrandGuidelinesPage = () => {
                 onChange={(e) => setNewRestrictedWord(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddRestricted())}
                 placeholder="Add restricted word..."
-                className="flex-1 text-xs rounded-lg border border-slate-300 p-2 focus:outline-hidden focus:ring-2 focus:ring-red-500/20"
+                className="flex-1 text-xs rounded-lg border border-slate-300 p-2 focus:outline-none focus:ring-2 focus:ring-red-500/20"
               />
               <button
                 type="button"

@@ -244,7 +244,7 @@ export const TeamManagementPage = () => {
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="colleague@yourcompany.com"
-                    className="w-full text-sm rounded-lg border border-slate-300 pl-9 pr-3 py-2.5 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                    className="w-full text-sm rounded-lg border border-slate-300 pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
                     required
                   />
                 </div>
@@ -257,7 +257,7 @@ export const TeamManagementPage = () => {
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
                 >
                   <option value="Marketing Admin">Marketing Admin (Full Access)</option>
                   <option value="Content Creator">Content Creator (Drafts & AI Studio)</option>

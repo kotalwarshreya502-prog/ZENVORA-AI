@@ -113,46 +113,103 @@ export const OverviewDashboard = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Link to="/dashboard/content-studio">
-            <Button variant="primary" size="md" className="shadow-md shadow-brand-violet/30 font-bold">
-              <Bot size={15} />
-              <span>Create Content</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link to="/dashboard/ai-agent">
+            <Button variant="primary" size="md" className="shadow-md shadow-brand-violet/30 font-bold gap-1.5">
+              <Sparkles size={15} />
+              <span>AI Agent</span>
             </Button>
           </Link>
-          <Link to="/dashboard/blog-generator">
-            <Button variant="teal" size="md">
+          <Link to="/dashboard/content-studio">
+            <Button variant="outline" size="md" className="bg-white/10 text-white hover:bg-white/20 border-white/20 font-semibold gap-1.5">
+              <Bot size={15} />
+              <span>Content Studio</span>
+            </Button>
+          </Link>
+          <Link to="/dashboard/image-generation">
+            <Button variant="teal" size="md" className="font-semibold gap-1.5">
               <FileText size={15} />
-              <span>Write Blog</span>
+              <span>Poster Creator</span>
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* AI Engine Status Banner — only show if Gemini is NOT configured */}
-      {healthStatus && healthStatus.geminiConfigured === false && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <Zap size={18} className="text-amber-500 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-800">AI Engine: Fallback Mode</p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              <strong>GEMINI_API_KEY</strong> is not configured on your Render backend.
-              All generators are using the static fallback engine instead of real AI.
-              Add your key in the <a href="https://dashboard.render.com" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Render Dashboard</a> → Environment Variables.
-              Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline font-semibold">aistudio.google.com</a>.
-            </p>
+      {/* System Subsystems Live Status Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <span className={`w-2.5 h-2.5 rounded-full ${healthStatus?.database === 'connected' ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              System Health &amp; Subsystems
+            </h2>
+          </div>
+          <span className="text-[11px] text-slate-400 font-mono">
+            {healthStatus?.subsystems?.backend?.environment || 'production'} • v{healthStatus?.subsystems?.backend?.version || '2.0.0'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 text-xs">
+          {/* Backend */}
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <div>
+              <span className="text-[10px] text-slate-400 block font-semibold">API BACKEND</span>
+              <span className="font-bold text-slate-700">Online</span>
+            </div>
+          </div>
+
+          {/* Database */}
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${healthStatus?.database === 'connected' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            <div>
+              <span className="text-[10px] text-slate-400 block font-semibold">MONGODB ATLAS</span>
+              <span className={`font-bold ${healthStatus?.database === 'connected' ? 'text-emerald-700' : 'text-rose-600'}`}>
+                {healthStatus?.database === 'connected' ? 'Connected' : 'Offline'}
+              </span>
+            </div>
+          </div>
+
+          {/* Text AI */}
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${healthStatus?.geminiConfigured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <div>
+              <span className="text-[10px] text-slate-400 block font-semibold">TEXT AI (GEMINI)</span>
+              <span className={`font-bold ${healthStatus?.geminiConfigured ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {healthStatus?.geminiConfigured ? 'Active (Real AI)' : 'Key Needed'}
+              </span>
+            </div>
+          </div>
+
+          {/* Image AI */}
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <div>
+              <span className="text-[10px] text-slate-400 block font-semibold">IMAGE AI (FLUX)</span>
+              <span className="font-bold text-slate-700">Available</span>
+            </div>
+          </div>
+
+          {/* Research Engine */}
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <div>
+              <span className="text-[10px] text-slate-400 block font-semibold">WEB RESEARCH</span>
+              <span className="font-bold text-slate-700">Active</span>
+            </div>
           </div>
         </div>
-      )}
-      {healthStatus && healthStatus.geminiConfigured === true && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-3">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <p className="text-xs font-semibold text-emerald-700">
-            ✅ AI Engine: Gemini 1.5 Flash — Real AI generation active.
-            DB: {healthStatus.database === 'connected' ? '🟢 Connected' : '🔴 Offline'}
-          </p>
-        </div>
-      )}
+
+        {/* Notice banner if Gemini key not set on Render */}
+        {healthStatus && healthStatus.geminiConfigured === false && (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
+            <Zap size={15} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <strong>Gemini API Key missing on server:</strong> Real AI inference requires setting <code className="font-mono bg-amber-100 px-1 rounded">GEMINI_API_KEY</code> in Render Dashboard environment variables, or entering your free API key via the <strong>API Key</strong> button on any generator page (stored locally in browser).
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">

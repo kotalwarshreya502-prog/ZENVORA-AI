@@ -67,6 +67,14 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// ─── Static Uploads & Media Storage ──────────────────────────────────────────
+const uploadsDir = path.resolve(__dirname, 'uploads');
+const postersDir = path.join(uploadsDir, 'posters');
+if (!fs.existsSync(postersDir)) {
+  fs.mkdirSync(postersDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
+
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api', apiRouter);
 

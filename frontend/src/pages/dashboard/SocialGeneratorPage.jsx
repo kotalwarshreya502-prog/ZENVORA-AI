@@ -72,11 +72,20 @@ const CTA_OPTIONS = [
   'No direct CTA',
 ];
 
+const CTA_OPTIONS_BY_PLATFORM = {
+  instagram: ['Tap link in bio', 'DM for details', 'Drop a comment below', 'Shop now / Order today', 'No direct CTA'],
+  linkedin:  ['Visit our website', 'Share your thoughts in comments', 'Read full announcement', 'Connect with our team', 'No direct CTA'],
+  twitter:   ['Check the link below', 'Repost & spread the word', 'Drop your thoughts', 'Shop today', 'No direct CTA'],
+  facebook:  ['Click the link below', 'Shop now / Order today', 'Tag someone who needs this', 'Share this post', 'No direct CTA'],
+  youtube:   ['Check link in description', 'Subscribe for more updates', 'Leave your thoughts in comments', 'No direct CTA'],
+};
+
 const PLATFORM_API_MAP = {
   linkedin:  'LinkedIn',
   twitter:   'X (Twitter)',
   instagram: 'Instagram',
   facebook:  'Facebook',
+  youtube:   'YouTube',
 };
 
 const PLATFORM_BUTTONS = [
@@ -84,6 +93,7 @@ const PLATFORM_BUTTONS = [
   { id: 'linkedin',  label: 'LinkedIn' },
   { id: 'twitter',   label: 'X (Twitter)' },
   { id: 'facebook',  label: 'Facebook' },
+  { id: 'youtube',   label: 'YouTube' },
 ];
 
 export const SocialGeneratorPage = () => {
@@ -98,6 +108,7 @@ export const SocialGeneratorPage = () => {
   const [objective, setObjective]           = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [keywords, setKeywords]             = useState('');
+  const [offer, setOffer]                   = useState('');
   const [tone, setTone]                     = useState('Conversational & Friendly');
   const [ctaType, setCtaType]               = useState('Link in bio / first comment');
   const [includeEmojis, setIncludeEmojis]   = useState(true);
@@ -181,11 +192,18 @@ export const SocialGeneratorPage = () => {
         ? ' Use relevant, stylish emojis to make the post visually engaging.'
         : ' Do not use any emojis.';
 
+      // Extract strict ground-truth offer from topic or explicit offer input
+      const detectedOffer = offer.trim() || (() => {
+        const m = topic.match(/(?:flat\s+)?(\d{1,3}%\s*(?:off|discount)?|buy\s+\d+\s+get\s+\d+|bogo|admission\s+open)/i);
+        return m ? m[0].toUpperCase() : '';
+      })();
+
       // Request 1: AI Marketing Content Generation
       setLoadingStage('Step 2/3: Calling configured Gemini model for post copy...');
 
       const contentPromise = api.generateContent({
         topic: topic.trim(),
+        offer: detectedOffer,
         type: 'Social Post',
         platform: PLATFORM_API_MAP[platform] || platform,
         industry: resolvedIndustry || 'General',
@@ -205,7 +223,8 @@ export const SocialGeneratorPage = () => {
         description: `${effectiveBrand ? `${effectiveBrand}: ` : ''}${topic.trim()}`,
         style: resolvedIndustry || tone || 'modern commercial advertising',
         size: platform === 'twitter' ? 'landscape' : platform === 'facebook' ? 'landscape' : 'square',
-        customHeadline: extractedHeadline || '',
+        customHeadline: extractedHeadline || `${effectiveBrand ? effectiveBrand + ' ' : ''}${detectedOffer || topic}`.trim(),
+        customOffer: detectedOffer,
         customCta: ctaType,
       });
 
@@ -235,36 +254,22 @@ export const SocialGeneratorPage = () => {
       // ── Process Visual Creative Response ──
       if (posterRes.status === 'fulfilled') {
         const pPayload = posterRes.value?.data ?? posterRes.value;
-        const imgUrl = pPayload?.imageUrl;
-        const fallbackUrl = pPayload?.fallbackImageUrl;
+        const rawImgUrl = pPayload?.fullImageUrl || pPayload?.imageUrl;
+        const resolvedUrl = rawImgUrl ? api.resolveImageUrl(rawImgUrl) : '';
+        const fallbackUrl = pPayload?.fallbackImageUrl ? api.resolveImageUrl(pPayload.fallbackImageUrl) : '';
         const logo = pPayload?.logoResult?.logoUrl;
         const spec = pPayload?.designSpec;
 
-        if (imgUrl) setPostImageUrl(imgUrl);
+        if (resolvedUrl) setPostImageUrl(resolvedUrl);
         if (fallbackUrl) setFallbackImageUrl(fallbackUrl);
         if (logo) setBrandLogoUrl(logo);
         if (spec) setDesignSpec(spec);
 
-        // Prefer Pollinations AI image, with fallback ready
-        setActiveVisualUrl(imgUrl || fallbackUrl);
+        if (resolvedUrl || fallbackUrl) {
+          setActiveVisualUrl(resolvedUrl || fallbackUrl);
+        }
       } else {
         console.warn('[SocialGen] Poster generation issue:', posterRes.reason);
-      }
-
-      // Ensure we have at least one valid image
-      if (!postImageUrl && !fallbackImageUrl) {
-        // Fallback default commercial visual based on topic
-        const lowerT = topic.toLowerCase();
-        let fallback = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1080&q=80';
-        if (lowerT.includes('diwali') || lowerT.includes('festiv')) {
-          fallback = 'https://images.unsplash.com/photo-1605379399642-870262d3d051?w=1080&q=80';
-        } else if (lowerT.includes('nike') || lowerT.includes('running') || lowerT.includes('shoe')) {
-          fallback = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1080&q=80';
-        } else if (lowerT.includes('pizza') || lowerT.includes('restaurant') || lowerT.includes('food')) {
-          fallback = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1080&q=80';
-        }
-        setFallbackImageUrl(fallback);
-        setActiveVisualUrl(fallback);
       }
 
     } catch (err) {
@@ -345,22 +350,146 @@ export const SocialGeneratorPage = () => {
     }
   };
 
-  // ── Action 4: Download Creative ────────────────────────────────────────────
+  // ── Action 4: Download High-Res Composited Creative ───────────────────────
   const handleDownloadCreative = async () => {
     const targetUrl = activeVisualUrl || postImageUrl || fallbackImageUrl;
     if (!targetUrl) return;
 
     setDownloading(true);
     try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const width = 1080;
+      const height = 1080;
+      canvas.width = width;
+      canvas.height = height;
+
+      // Load background image
+      const bgImg = new Image();
+      bgImg.crossOrigin = 'anonymous';
+
+      await new Promise((resolve, reject) => {
+        bgImg.onload = resolve;
+        bgImg.onerror = () => {
+          bgImg.crossOrigin = null;
+          bgImg.src = targetUrl;
+          bgImg.onload = resolve;
+          bgImg.onerror = reject;
+        };
+        bgImg.src = targetUrl;
+      });
+
+      // 1. Draw Background covering canvas
+      ctx.drawImage(bgImg, 0, 0, width, height);
+
+      // 2. High-Contrast Gradient Scrims
+      const topGrad = ctx.createLinearGradient(0, 0, 0, height * 0.35);
+      topGrad.addColorStop(0, 'rgba(0,0,0,0.85)');
+      topGrad.addColorStop(0.6, 'rgba(0,0,0,0.4)');
+      topGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(0, 0, width, height * 0.35);
+
+      const botGrad = ctx.createLinearGradient(0, height * 0.45, 0, height);
+      botGrad.addColorStop(0, 'rgba(0,0,0,0)');
+      botGrad.addColorStop(0.4, 'rgba(0,0,0,0.75)');
+      botGrad.addColorStop(0.8, 'rgba(0,0,0,0.95)');
+      botGrad.addColorStop(1, 'rgba(0,0,0,0.98)');
+      ctx.fillStyle = botGrad;
+      ctx.fillRect(0, height * 0.45, width, height * 0.55);
+
+      const pad = width * 0.06;
+
+      // 3. Brand Pill (Top Left)
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(width * 0.038)}px "Inter", sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(effectiveBrandName.toUpperCase(), pad, pad + 15);
+
+      // 4. Offer Badge (Top Right)
+      if (effectiveOffer) {
+        ctx.font = `bold ${Math.round(width * 0.026)}px "Inter", sans-serif`;
+        const textWidth = ctx.measureText(effectiveOffer.toUpperCase()).width;
+        const bX = width - pad - textWidth - 36;
+        const bY = pad;
+        ctx.fillStyle = '#F59E0B';
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(bX, bY, textWidth + 36, 36, 8) : ctx.rect(bX, bY, textWidth + 36, 36);
+        ctx.fill();
+        ctx.fillStyle = '#111827';
+        ctx.fillText(effectiveOffer.toUpperCase(), bX + 18, bY + 18);
+      }
+
+      // 5. Headline (Bottom Section)
+      ctx.fillStyle = '#FBBF24'; // Amber-gold
+      ctx.font = `900 ${Math.round(width * 0.055)}px "Inter", sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 3;
+
+      const words = displayHeadline.toUpperCase().split(' ');
+      let line = '';
+      let currY = height * 0.68;
+      const lineHeight = Math.round(width * 0.065);
+      const maxW = width - pad * 2;
+
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxW && n > 0) {
+          ctx.fillText(line.trim(), pad, currY);
+          line = words[n] + ' ';
+          currY += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      ctx.fillText(line.trim(), pad, currY);
+
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+
+      // 6. Subheadline
+      if (displaySubheadline) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = `500 ${Math.round(width * 0.028)}px "Inter", sans-serif`;
+        ctx.fillText(displaySubheadline, pad, currY + lineHeight + 10);
+      }
+
+      // 7. CTA Button
+      const ctaW = 200;
+      const ctaH = 48;
+      const ctaY = height - pad - ctaH;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(pad, ctaY, ctaW, ctaH, 10) : ctx.rect(pad, ctaY, ctaW, ctaH);
+      ctx.fill();
+      ctx.fillStyle = '#0f172a';
+      ctx.font = `bold ${Math.round(width * 0.026)}px "Inter", sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(displayCta.toUpperCase(), pad + 24, ctaY + ctaH / 2);
+
+      // Export & download
+      const dataUrl = canvas.toDataURL('image/png');
+      const brandSlug = (brandName || user?.businessName || 'brand').toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const topicSlug = topic.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 25);
+      const filename = `${brandSlug}-${topicSlug}-poster.png`;
+
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.warn('Canvas download fallback to raw image:', err);
       const brandSlug = (brandName || user?.businessName || 'brand').toLowerCase().replace(/[^a-z0-9]/g, '-');
       const topicSlug = topic.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 25);
       const filename = `${brandSlug}-${topicSlug}-creative.jpg`;
-
       await api.downloadImage(targetUrl, filename);
-    } catch (err) {
-      console.error('Download error:', err);
-      // Direct window open fallback
-      window.open(targetUrl, '_blank');
     } finally {
       setDownloading(false);
     }
@@ -370,9 +499,14 @@ export const SocialGeneratorPage = () => {
   const inputCls = 'w-full text-xs rounded-lg border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20 focus:border-brand-violet bg-white text-slate-800 placeholder:text-slate-400';
 
   const effectiveBrandName = brandName.trim() || user?.businessName || 'Brand';
-  const displayHeadline = designSpec?.headline || extractedHeadline || topic || 'Special Offer';
-  const displaySubheadline = designSpec?.subheadline || 'Exclusive Limited Time Deals & Discounts';
-  const displayCta = designSpec?.cta || extractedCta || ctaType || 'Shop Now →';
+  const effectiveOffer = offer.trim() || designSpec?.offer || (() => {
+    const m = topic.match(/(?:flat\s+)?(\d{1,3}%\s*(?:off|discount)?|buy\s+\d+\s+get\s+\d+|bogo|admission\s+open)/i);
+    return m ? m[0].toUpperCase() : '';
+  })();
+  const rawHeadline = extractedHeadline || designSpec?.headline || `${effectiveBrandName} ${effectiveOffer || topic}`.trim();
+  const displayHeadline = rawHeadline.replace(/\s*\.{3,}$/, '').trim();
+  const displaySubheadline = (designSpec?.subheadline || (effectiveOffer ? `Exclusive ${effectiveOffer} on verified festive collections.` : 'Special promotional campaign.')).replace(/\s*\.{3,}$/, '').trim();
+  const displayCta = ctaType || designSpec?.cta || extractedCta || 'Shop Now →';
 
   return (
     <div className="space-y-6">
@@ -498,12 +632,16 @@ export const SocialGeneratorPage = () => {
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
                 Target Platform
               </label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-5 gap-2">
                 {PLATFORM_BUTTONS.map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setPlatform(item.id)}
+                    onClick={() => {
+                      setPlatform(item.id);
+                      const opts = CTA_OPTIONS_BY_PLATFORM[item.id] || CTA_OPTIONS;
+                      if (!opts.includes(ctaType)) setCtaType(opts[0]);
+                    }}
                     className={`py-2 px-1 text-xs font-medium rounded-lg border text-center transition-all ${
                       platform === item.id
                         ? 'border-brand-violet bg-brand-violet/10 text-brand-violet font-semibold ring-2 ring-brand-violet/20'
@@ -560,14 +698,40 @@ export const SocialGeneratorPage = () => {
             {/* Topic / Message Hook (Required) */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Campaign Topic / Offer <span className="text-red-500">*</span>
+                Campaign Topic / Hook <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="e.g. flipkart diwali offer, nike running sneakers launch, authentic artisan pizza..."
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTopic(val);
+                  const m = val.match(/(?:flat\s+)?(\d{1,3}%\s*(?:off|discount)?|buy\s+\d+\s+get\s+\d+|bogo|admission\s+open)/i);
+                  if (m && !offer) {
+                    setOffer(m[0].toUpperCase());
+                  }
+                }}
+                placeholder="e.g. 50% off Diwali Dhamaka, Nike running sneakers launch, artisan pizza..."
                 rows={3}
                 required
+                className={inputCls}
+              />
+            </div>
+
+            {/* Campaign Offer / Discount (Strict Ground Truth) */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Campaign Offer / Discount
+                </label>
+                <span className="text-[10px] text-brand-violet font-semibold bg-brand-violet/10 px-2 py-0.5 rounded">
+                  Strict Source of Truth
+                </span>
+              </div>
+              <input
+                type="text"
+                value={offer}
+                onChange={(e) => setOffer(e.target.value)}
+                placeholder="e.g. 50% OFF, 30% OFF, Buy 1 Get 1, Admission Open..."
                 className={inputCls}
               />
             </div>
@@ -609,7 +773,7 @@ export const SocialGeneratorPage = () => {
                   onChange={(e) => setCtaType(e.target.value)}
                   className={inputCls}
                 >
-                  {CTA_OPTIONS.map((c) => (
+                  {(CTA_OPTIONS_BY_PLATFORM[platform] || CTA_OPTIONS).map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
@@ -689,10 +853,10 @@ export const SocialGeneratorPage = () => {
             </span>
             <div className="flex flex-wrap gap-1.5">
               {[
-                { label: 'Flipkart Diwali Offer', brand: 'Flipkart', ind: 'E-commerce & Retail' },
-                { label: 'Nike Running Shoes Launch', brand: 'Nike', ind: 'Fitness & Sports' },
-                { label: 'Artisan Italian Pizza Weekend', brand: 'Bella Italia', ind: 'Food & Restaurants' },
                 { label: 'EcoClean Solar Energy Consultation', brand: 'EcoClean', ind: 'Technology' },
+                { label: 'Artisan Sourdough Bakery Weekend', brand: 'Bella Bakery', ind: 'Food & Restaurants' },
+                { label: 'Performance Athletic Footwear Series', brand: 'Apex Sport', ind: 'Fitness & Sports' },
+                { label: 'Cloud Infrastructure Optimization', brand: 'DataCore', ind: 'SaaS' },
               ].map((p) => (
                 <button
                   key={p.label}
@@ -875,9 +1039,11 @@ export const SocialGeneratorPage = () => {
                       />
                     </>
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400">
-                      <ImageIcon size={32} />
-                      <span className="text-xs mt-2">Visual creative rendering...</span>
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400 p-6 text-center">
+                      <ImageIcon size={32} className="text-slate-500 mb-2" />
+                      <p className="text-xs text-slate-300 font-medium max-w-xs">
+                        Image generation is temporarily unavailable. Please configure an image-generation provider.
+                      </p>
                     </div>
                   )}
 
@@ -898,19 +1064,21 @@ export const SocialGeneratorPage = () => {
                     <span className="tracking-wide">{effectiveBrandName}</span>
                   </div>
 
-                  {/* Overlaid Festive / Promo Pill (Top Right) */}
-                  <div className="absolute top-3 right-3 z-10 px-2.5 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider shadow-md">
-                    {topic.toLowerCase().includes('diwali') ? 'Diwali Special' : 'Special Offer'}
+                  {/* Overlaid Strict Offer Badge (Top Right) */}
+                  <div className="absolute top-3 right-3 z-10 px-3 py-1 rounded-md bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg border border-amber-300">
+                    {effectiveOffer || 'SPECIAL OFFER'}
                   </div>
 
                   {/* Overlaid Advertising Typography & CTA Bar (Bottom Overlay) */}
-                  <div className="absolute inset-x-0 bottom-0 z-10 p-4 bg-gradient-to-t from-black/95 via-black/65 to-transparent text-white pt-10">
-                    <div className="text-sm sm:text-base font-black uppercase tracking-wide text-amber-300 drop-shadow-md line-clamp-1">
+                  <div className="absolute inset-x-0 bottom-0 z-10 p-5 bg-gradient-to-t from-black/95 via-black/85 to-transparent text-white pt-16">
+                    <div className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wide text-amber-300 drop-shadow-md leading-tight break-words">
                       {displayHeadline}
                     </div>
-                    <div className="text-[11px] text-white/90 font-medium drop-shadow-sm mt-0.5 line-clamp-1">
-                      {displaySubheadline}
-                    </div>
+                    {displaySubheadline && (
+                      <div className="text-[11px] sm:text-xs text-white/90 font-medium drop-shadow-sm mt-1 leading-snug break-words">
+                        {displaySubheadline}
+                      </div>
+                    )}
                     <div className="mt-2.5 flex items-center justify-between">
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-md bg-white text-slate-950 shadow-sm uppercase tracking-wider hover:bg-slate-100 transition-colors">
                         {displayCta}
@@ -922,7 +1090,7 @@ export const SocialGeneratorPage = () => {
                         title="Download Creative Visual"
                       >
                         <Download size={12} />
-                        Download
+                        Download HD Poster
                       </button>
                     </div>
                   </div>
@@ -999,8 +1167,8 @@ export const SocialGeneratorPage = () => {
                       onError={handleImageError}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/80 to-transparent text-white flex items-center justify-between">
-                      <div className="text-xs font-bold uppercase text-amber-300 line-clamp-1">{displayHeadline}</div>
+                    <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/85 via-black/70 to-transparent text-white flex items-center justify-between">
+                      <div className="text-xs font-bold uppercase text-amber-300 leading-snug break-words mr-2">{displayHeadline}</div>
                       <button
                         type="button"
                         onClick={handleDownloadCreative}

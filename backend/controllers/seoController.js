@@ -170,3 +170,27 @@ export const analyzeWebsiteSeo = async (req, res) => {
     return errorResponse(res, 'SEO analysis failed', 500, err.message);
   }
 };
+
+export const researchKeywords = async (req, res) => {
+  try {
+    const { seedKeywords, domain, targetRegion = 'Global' } = req.body;
+    const userId = req.user?.id;
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || '';
+
+    const { default: Orchestrator } = await import('../services/orchestratorService.js');
+    const businessContext = await Orchestrator.getBusinessContext(userId);
+
+    const seoResult = await Orchestrator.runSeoAgent({
+      domain,
+      seedKeywords,
+      targetRegion,
+      businessContext,
+      customApiKey,
+    });
+
+    return successResponse(res, 'Keyword research and cluster analysis completed', seoResult);
+  } catch (err) {
+    console.error('[SEO Keyword Research]:', err.message);
+    return errorResponse(res, `Keyword research failed: ${err.message}`, 500, err.message);
+  }
+};

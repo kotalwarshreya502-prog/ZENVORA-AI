@@ -111,7 +111,7 @@ export const SettingsPage = () => {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                  className="w-full text-sm rounded-lg border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
                 />
               </div>
 
@@ -236,7 +236,7 @@ export const SettingsPage = () => {
                 <select
                   value={aiModel}
                   onChange={(e) => setAiModel(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-slate-300 p-2.5 bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-violet/20"
+                  className="w-full text-xs rounded-lg border border-slate-300 p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
                 >
                   <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Ultra-low latency, 1M context)</option>
                   <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Deep reasoning & long-form SEO)</option>

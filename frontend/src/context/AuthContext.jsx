@@ -12,25 +12,30 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem('zenvora_token');
+      const savedUser = localStorage.getItem('zenvora_user');
+
       if (storedToken) {
+        setToken(storedToken);
+        if (savedUser) {
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch {}
+        }
+
         try {
           const res = await api.getMe();
           if (res?.user) {
             setUser(res.user);
-            setToken(storedToken);
-          } else {
+            localStorage.setItem('zenvora_user', JSON.stringify(res.user));
+          } else if (res?.status === 401) {
             logout();
           }
-        } catch {
-          // If server fails or token invalid, check if we have stored user
-          const savedUser = localStorage.getItem('zenvora_user');
-          if (savedUser) {
-            try {
-              setUser(JSON.parse(savedUser));
-            } catch {
-              logout();
-            }
+        } catch (err) {
+          // Only log out if specifically rejected with 401/403
+          if (err?.status === 401 || err?.status === 403) {
+            logout();
           }
+          // Otherwise keep cached user for offline/cold-start resilience
         }
       }
       setLoading(false);

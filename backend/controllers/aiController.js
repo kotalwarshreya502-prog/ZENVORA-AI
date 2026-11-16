@@ -9,15 +9,41 @@ import Storage from '../services/storageService.js';
 import { errorResponse, successResponse } from '../utils/responseHandler.js';
 import { generateRequestId } from '../services/aiProviderService.js';
 
-// ── Shared helper: fetch brand guidelines silently ───────────────────────────
+// ── Shared helper: fetch unified business & brand profile silently ───────────
 async function getBrandCtx(userId) {
-  try { return await Storage.getBrandGuidelines(userId); } catch { return null; }
+  try {
+    const [guidelines, business] = await Promise.all([
+      Storage.getBrandGuidelines(userId),
+      Storage.getBusinessByOwner(userId),
+    ]);
+    const bizObj = business?.toObject ? business.toObject() : business;
+    const guideObj = guidelines?.toObject ? guidelines.toObject() : guidelines;
+
+    return {
+      ...(bizObj || {}),
+      ...(guideObj || {}),
+      businessName: bizObj?.name || '',
+      industry: bizObj?.industry || '',
+      website: bizObj?.website || '',
+      description: bizObj?.description || '',
+      brandVoice: guideObj?.brandVoice || bizObj?.brandVoice || '',
+      targetAudience: guideObj?.targetAudience || bizObj?.targetAudience || '',
+      uniqueSellingPoints: bizObj?.uniqueSellingPoints || guideObj?.uniqueSellingPoints || [],
+      productsServices: bizObj?.productsServices || guideObj?.productsServices || [],
+      primaryColor: guideObj?.primaryColor || bizObj?.brandColors?.primary || '#7657F6',
+      accentColor: guideObj?.accentColor || bizObj?.brandColors?.secondary || '#11152B',
+      logoUrl: guideObj?.logoUrl || bizObj?.logoUrl || '',
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ── Shared helper: save to generation history silently ───────────────────────
 async function saveHistory(userId, module, input, output, provider = 'gemini') {
   try {
     const { default: GenerationHistory } = await import('../models/GenerationHistory.js');
+    const title = input.topic || input.title || input.campaignTitle || input.subject || input.name || input.description || `${module} generation`;
     await GenerationHistory.create({
       userId,
       requestId: generateRequestId(),
@@ -27,6 +53,7 @@ async function saveHistory(userId, module, input, output, provider = 'gemini') {
       provider,
       model: output.model || 'zenvora-engine-v1',
       status: 'success',
+      title,
     });
   } catch (e) { console.warn(`[History] ${module} save failed:`, e.message); }
 }
@@ -43,6 +70,7 @@ export const generateMarketingContent = async (req, res) => {
       industry    = '',
       targetAudience = '',
       topic,
+      offer       = '',
       tone        = 'Engaging',
       language    = 'English',
       keywords    = '',
@@ -60,7 +88,7 @@ export const generateMarketingContent = async (req, res) => {
     const customApiKey  = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
 
     const result = await GeminiService.generateMarketingContent({
-      type, platform, industry, targetAudience, topic,
+      type, platform, industry, targetAudience, topic, offer,
       tone, language, keywords, length, brandName, objective, brandGuidelines,
       customApiKey,
     });
@@ -96,9 +124,11 @@ export const generateBlog = async (req, res) => {
       ? secondaryKeywords
       : (secondaryKeywords ? String(secondaryKeywords).split(',').map(k => k.trim()).filter(Boolean) : []);
 
+    const customApiKey  = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+
     const result = await GeminiService.generateBlogArticle({
       topic, targetKeyword, secondaryKeywords: kwArray,
-      audience, tone, length, brandGuidelines,
+      audience, tone, length, brandGuidelines, customApiKey,
     });
 
     saveHistory(userId, 'blog-generator', req.body, result, result.model);
@@ -128,9 +158,11 @@ export const generateCaptions = async (req, res) => {
 
     if (!topic) return errorResponse(res, 'Topic is required', 400);
 
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+
     const result = await GeminiService.generateSocialCaptions({
       platform, topic, tone, count,
-      brandName, industry, targetAudience, keywords,
+      brandName, industry, targetAudience, keywords, customApiKey,
     });
 
     const userId = req.user?.id || 'demo_user';
@@ -158,8 +190,10 @@ export const generateHashtags = async (req, res) => {
     const topic = niche || keyword;
     if (!topic) return errorResponse(res, 'Keyword or niche is required', 400);
 
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+
     const result = await GeminiService.generateHashtags({
-      niche: topic, platform, industry, brandName, count,
+      niche: topic, platform, industry, brandName, count, customApiKey,
     });
 
     const userId = req.user?.id || 'demo_user';
@@ -240,7 +274,11 @@ Output structured as:
 **A/B Variation:**
 [alternative headline + primary text variation]`;
 
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+    if (!liveResult?.text) {
+      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
+    }
 
     const content = liveResult?.text || `**Primary Headline:**\n${offer || objective} — ${brandName || 'Act Now'}!\n\n**Primary Ad Text:**\n${product || brandName}: ${offer || 'Get started today'}. For ${targetAudience || 'everyone'}.\n\n**Call to Action:**\n${objective.includes('sign') ? 'Sign Up Free' : objective.includes('shop') ? 'Shop Now' : 'Learn More'}`;
 
@@ -333,7 +371,11 @@ Deliver a complete campaign plan structured as:
 **Success Criteria:**
 [What "success" looks like for this campaign]`;
 
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+    if (!liveResult?.text) {
+      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
+    }
 
     const content = liveResult?.text || `**Campaign Overview:**\n${campaignName || objective} for ${brandName || 'your brand'} targeting ${targetAudience || 'your audience'}.\n\n**Core Message:**\n${objective}\n\n**Platforms:** ${platformList}`;
 
@@ -411,7 +453,11 @@ Structure as:
 **P.S. Line:**
 [Optional postscript to reinforce urgency or offer]`;
 
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+    if (!liveResult?.text) {
+      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
+    }
 
     const content = liveResult?.text || `**Subject Line:**\n${subject || offer} — Don't Miss Out!\n\n**Email Body:**\nDear ${targetAudience || 'Valued Customer'},\n\n${offer || subject}\n\n**CTA:** ${cta}`;
 
@@ -483,7 +529,11 @@ Create a week-by-week content calendar with:
 Format as a structured calendar with Week 1, Week 2, Week 3, Week 4 sections.
 Each week should have exactly ${postsPerWeek} specific, actionable post ideas.`;
 
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+    if (!liveResult?.text) {
+      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
+    }
 
     const content = liveResult?.text || `**Content Calendar: ${campaignTopic || brandName}**\n\nWeek 1:\n- Day 1: Brand introduction post on ${platformList}\n- Day 3: Product highlight\n- Day 5: Customer story / testimonial\n\nWeek 2:\n- Day 1: Behind-the-scenes content\n- Day 3: Educational tip related to ${campaignTopic}\n- Day 5: Call to action post`;
 
@@ -547,7 +597,11 @@ Provide:
 **Alternative Version:**
 [A second variation with a different angle]`;
 
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+    if (!liveResult?.text) {
+      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
+    }
 
     const content = liveResult?.text || `**Improved Version:**\n${originalContent}\n\n**What Changed:**\n- Reviewed for clarity\n- Optimized for ${platform} engagement`;
 
@@ -626,7 +680,11 @@ Create a detailed brand voice guide with:
 **Competitor Differentiation:**
 [How the brand voice differs from competitors]`;
 
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+    if (!liveResult?.text) {
+      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
+    }
 
     const content = liveResult?.text || `**Brand Voice Statement:**\n${brandName || 'Our brand'} communicates with clarity, confidence, and genuine care for ${targetAudience || 'our audience'}.\n\n**Tone:** ${values || 'Professional, Trustworthy, Innovative'}`;
 
@@ -700,7 +758,11 @@ Provide:
 **Ad Headline:**
 [Short, compelling headline for paid ads]`;
 
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+    if (!liveResult?.text) {
+      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
+    }
 
     const content = liveResult?.text || `**Short Description:**\n${productName || brandName}: ${features || 'Premium quality'} for ${targetAudience || 'discerning customers'}.\n\n**Full Description:**\nDiscover the difference with ${productName || brandName}. ${features}`;
 
@@ -718,5 +780,44 @@ Provide:
   } catch (err) {
     console.error('[Product Description]:', err.message);
     return errorResponse(res, 'Failed to generate product description', 500, err.message);
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// 11. AUTONOMOUS MARKETING AGENT (Multi-Step Marketing Agent)
+// POST /api/ai/agent
+// ════════════════════════════════════════════════════════════════════════════
+export const runAutonomousAgent = async (req, res) => {
+  try {
+    const { instruction, command } = req.body;
+    const task = instruction || command;
+    if (!task || !task.trim()) {
+      return errorResponse(res, 'Instruction or command is required for the Autonomous Agent', 400);
+    }
+
+    const userId = req.user?.id || 'demo_user';
+    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+
+    const { default: Orchestrator } = await import('../services/orchestratorService.js');
+    const businessContext = await Orchestrator.getBusinessContext(userId);
+
+    const plan = await Orchestrator.runAutomationAgent({
+      instruction: task,
+      businessContext,
+      customApiKey,
+    });
+
+    const executionResults = {
+      plan,
+      executedBy: 'Zenvora Multi-Agent Orchestrator',
+      executedAt: new Date().toISOString(),
+      businessContext: businessContext?.name || 'User Business',
+    };
+
+    saveHistory(userId, 'autonomous-agent', { instruction: task }, executionResults, 'gemini-1.5-flash');
+    return successResponse(res, 'Autonomous marketing agent execution plan generated', executionResults);
+  } catch (err) {
+    console.error('[Autonomous Agent]:', err.message);
+    return errorResponse(res, `Autonomous agent execution failed: ${err.message}`, 500, err.message);
   }
 };

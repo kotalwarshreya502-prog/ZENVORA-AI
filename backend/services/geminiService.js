@@ -10,6 +10,9 @@
  *   never silently substitute unrelated content.
  */
 
+import { extractStrictOffer, buildStrictOfferRules, sanitizeGeneratedText } from '../utils/offerIntegrity.js';
+import { validateCampaignContent } from './campaignFactValidator.js';
+
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 const GEMINI_PRO_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
 
@@ -108,6 +111,7 @@ export const GeminiService = {
     industry       = '',
     targetAudience = '',
     topic,
+    offer          = '',
     tone           = 'Engaging',
     language       = 'English',
     keywords       = '',
@@ -162,8 +166,14 @@ export const GeminiService = {
     const platformInstructions = platformGuide[platform]
       || `${platform} post: appropriate length and format for the platform.`;
 
+    // ── Extract and enforce strict offer ─────────────────────────────────────
+    const strictOffer = extractStrictOffer(topic, offer);
+    const offerMandate = buildStrictOfferRules(strictOffer, `User Topic: "${topic}", Offer: "${offer || strictOffer}", Objective: "${objective}"`);
+
     // ── 5. System prompt ──────────────────────────────────────────────────────
     const systemPrompt = `You are an expert marketing copywriter who generates platform-specific, brand-aligned content.
+
+${offerMandate}
 
 STRICT RULES:
 1. Write ONLY about the given TOPIC. Do not introduce unrelated marketing concepts.
@@ -173,7 +183,7 @@ STRICT RULES:
    Correct: #BigSale #Electronics #Flipkart
    Wrong: #BigSaleElectronicsFlipkartOffers
 5. The CTA must relate directly to the campaign topic and objective.
-6. NEVER use jargon unrelated to the given industry (e.g., do not say "pipeline velocity" for a food brand).
+6. NEVER use jargon unrelated to the given industry.
 7. Output in ${language}.
 
 BRAND PROFILE:
@@ -183,6 +193,7 @@ ${brandBlock}`;
     const userPrompt = `Write a ${type} for ${platform}.
 
 TOPIC: ${topic}
+EXACT CAMPAIGN OFFER: ${strictOffer || 'None specified. DO NOT invent or assume any discount percentages or bank offers.'}
 INDUSTRY: ${industry || 'General'}
 TARGET AUDIENCE: ${targetAudience || 'General public'}
 TONE: ${tone}
@@ -197,41 +208,92 @@ HASHTAG RULES: ${hashtagInstruction}
 Structure your output as:
 
 **Hook / Headline:**
-[platform-appropriate opening line or headline]
+[platform-appropriate opening line or headline featuring the exact offer "${strictOffer || topic}"]
 
 **Main Content:**
-[body copy matching the platform format, length, and tone — 100% relevant to the topic and industry]
+[body copy matching the platform format, length, and tone — strictly preserving the exact offer without inventing bank discounts or unverified product categories]
 
 **Call to Action:**
 [a direct CTA relevant to: ${objective || topic}]
 
 **Hashtags:**
-[list each hashtag separated by spaces — each is a SEPARATE #token]`;
+[list each hashtag separated by spaces — each is a SEPARATE #token, never contradicting the offer]`;
 
-    // ── 7. Call Gemini ────────────────────────────────────────────────────────
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+    // ── 7. Call Gemini with Real-Time Fact Validation & Auto-Regeneration ────
+    let liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+
     if (liveResult) {
+      let activeText = liveResult.text;
+      const initialValidation = validateCampaignContent(
+        { topic, offer, brandName: effectiveBrandName, objective },
+        activeText
+      );
+
+      // If initial generation violated campaign facts (e.g. invented bank discount, 80% off, etc.)
+      if (!initialValidation.isValid) {
+        console.warn('⚠️ [GeminiService] Initial generation rejected for fact violations:', initialValidation.errors.join('; '));
+
+        const correctionPrompt = `${userPrompt}
+
+CRITICAL CORRECTION REQUIRED:
+Your previous draft was REJECTED because it violated campaign factual integrity:
+${initialValidation.errors.map(e => `- ${e}`).join('\n')}
+
+REGENERATE IMMEDIATELY obeying these strict mandates:
+1. The EXACT offer is strictly "${strictOffer || 'None'}". DO NOT change it to 80%, 70%, or any other percentage.
+2. DO NOT invent bank discounts (no mention of SBI, HDFC, ICICI, card offers).
+3. DO NOT invent No-Cost EMI or financing facilities.
+4. Keep the content 100% focused on: "${topic}".`;
+
+        const retryResult = await GeminiService.callGemini(correctionPrompt, systemPrompt, customApiKey);
+        if (retryResult?.text) {
+          activeText = retryResult.text;
+          console.log('✅ [GeminiService] Successfully regenerated content with strict correction');
+        }
+      }
+
+      // Sanitize the raw generated text against hallucinated bank offers or inflated percentages
+      const sanitizedText = sanitizeGeneratedText(activeText, strictOffer, topic);
+
+      // Final post-sanitization validation check
+      const finalValidation = validateCampaignContent(
+        { topic, offer, brandName: effectiveBrandName, objective },
+        sanitizedText
+      );
+
       // Helper to parse sections from formatted output
       let headline = '';
       let cta = '';
       let hashtags = [];
 
-      const headlineMatch = liveResult.text.match(/\*\*Hook \/ Headline:\*\*\s*([\s\S]*?)(?=\*\*Main Content:\*\*|$)/i);
-      if (headlineMatch) headline = headlineMatch[1].trim();
+      const headlineMatch = sanitizedText.match(/\*\*Hook \/ Headline:\*\*\s*([\s\S]*?)(?=\*\*Main Content:\*\*|$)/i);
+      if (headlineMatch) headline = sanitizeGeneratedText(headlineMatch[1].trim(), strictOffer, topic);
 
-      const ctaMatch = liveResult.text.match(/\*\*Call to Action:\*\*\s*([\s\S]*?)(?=\*\*Hashtags:\*\*|$)/i);
-      if (ctaMatch) cta = ctaMatch[1].trim();
+      const ctaMatch = sanitizedText.match(/\*\*Call to Action:\*\*\s*([\s\S]*?)(?=\*\*Hashtags:\*\*|$)/i);
+      if (ctaMatch) cta = sanitizeGeneratedText(ctaMatch[1].trim(), strictOffer, topic);
 
-      const hashtagMatch = liveResult.text.match(/\*\*Hashtags:\*\*\s*([\s\S]*?)$/i);
+      const hashtagMatch = sanitizedText.match(/\*\*Hashtags:\*\*\s*([\s\S]*?)$/i);
       if (hashtagMatch) {
         hashtags = hashtagMatch[1].trim().split(/\s+/).filter(h => h.startsWith('#'));
       }
 
+      // Clean any accidental truncation ellipsis
+      if (headline) {
+        headline = headline.replace(/\s*\.{3,}$/, '').trim();
+      }
+
+      // If strict offer exists, ensure headline reflects it directly
+      if (strictOffer && (!headline || !headline.toUpperCase().includes(strictOffer))) {
+        headline = `${effectiveBrandName ? effectiveBrandName + ' ' : ''}${strictOffer} Special`.trim();
+      }
+
       return {
-        content:     liveResult.text,
+        content:     sanitizedText,
         headline:    headline || `${effectiveBrandName || 'Featured'} • ${topic}`,
         cta:         cta || (objective || 'Learn More'),
         hashtags:    hashtags.length > 0 ? hashtags : [`#${(effectiveBrandName || 'brand').replace(/\s+/g, '')}`, '#NewCampaign'],
+        strictOffer,
+        validation:  { isValid: finalValidation.isValid, errors: finalValidation.errors },
         type,
         platform,
         topic,
@@ -241,157 +303,10 @@ Structure your output as:
       };
     }
 
-    // ── 8. Semantic Creative Engine (Zero generic filler) ─────────────────────
-    const displayBrand = effectiveBrandName || 'Our Brand';
-    const lowerTopic   = `${topic} ${keywords} ${industry}`.toLowerCase();
-
-    let hookText = '';
-    let bodyText = '';
-    let ctaText  = '';
-    let hashtagTokens = [];
-
-    if (lowerTopic.includes('diwali') || lowerTopic.includes('dhanteras') || (lowerTopic.includes('flipkart') && lowerTopic.includes('offer'))) {
-      hookText = `🪔 Light Up Your Celebrations with the ${displayBrand} Diwali Mega Sale! 💥`;
-      
-      if (platform === 'Instagram') {
-        bodyText = `✨ The festival of lights just got a whole lot brighter! 🪔💥\nCelebrate Diwali with unforgettable deals, massive discounts, and festive cheer tailored for you and your loved ones.\n\n🎁 Up to 80% OFF on Festive Fashion & Ethnic Wear\n📱 Mega Price Drops on Smartphones, Electronics & Laptops\n🏡 Home Decor, Gifting Hampers & Auspicious Specials\n💳 Instant 10% Bank Discount on Leading Cards + No-Cost EMI\n\nMake this festive season memorable with gifts that bring genuine joy to your family. Stocks are flying fast!`;
-        ctaText = `👉 Tap the link in bio to shop the ${displayBrand} Diwali Sale now!`;
-      } else if (platform === 'LinkedIn') {
-        bodyText = `As India gears up for the festive peak, ${displayBrand} is redefining consumer value and festive commerce with the 2026 Diwali Mega Sale.\n\nFrom empowering regional MSME sellers and local artisans to fulfilling orders across 19,000+ pin codes with rapid delivery, this festive season reflects the incredible resilience and scale of digital commerce.\n\nKey Highlights:\n• High-velocity festive demand across electronics, smart appliances, and home goods\n• Frictionless checkouts, expanded credit access, and 24-hour fulfillment\n• Delivering record festive value to millions of households nationwide\n\nHow is your organization preparing for the festive commerce surge this quarter? Share your perspective below.`;
-        ctaText = `👉 Join the conversation or explore the full campaign at ${displayBrand.toLowerCase().replace(/[^a-z0-9]/g, '')}.com.`;
-      } else if (platform === 'X (Twitter)') {
-        bodyText = `🪔 The biggest festival of lights deserves the biggest deals! 💥\n\nThe ${displayBrand} Diwali Sale is LIVE with up to 80% off smartphones, fashion, electronics & gifts.\n\nShop the festive offers now before stocks run out! 👇`;
-        ctaText = `Shop the Diwali Sale now at the link in bio!`;
-      } else {
-        bodyText = `Celebrate Diwali with joy, family, and extraordinary festive savings! 🪔✨\n\nThe ${displayBrand} Diwali Sale brings you unbeatable festive specials:\n🛍️ Up to 80% OFF on festive apparel, smartphones & appliances\n🎁 Curated festive gifting hampers for friends & family\n🚚 Fast, guaranteed festive delivery straight to your doorstep\n\nTag someone who loves festive shopping! 👇`;
-        ctaText = `👉 Visit ${displayBrand} today and grab your festive offers while stocks last!`;
-      }
-
-      hashtagTokens = [
-        `#${displayBrand.replace(/\s+/g, '')}DiwaliSale`,
-        '#DiwaliOffers',
-        '#FestivalOfLights',
-        '#BigDiwaliSale',
-        '#FestiveDeals',
-        '#DiwaliShopping',
-        '#HappyDiwali',
-        '#MegaDiscounts',
-        '#IndiaShopping',
-      ];
-    } else if (lowerTopic.includes('nike') || lowerTopic.includes('shoe') || lowerTopic.includes('running') || lowerTopic.includes('sneaker') || lowerTopic.includes('fitness')) {
-      hookText = `⚡ Unstoppable Speed. Relentless Comfort. Defy Your Limits with ${displayBrand}.`;
-      
-      if (platform === 'Instagram') {
-        bodyText = `🔥 Engineered for runners who refuse to settle. 🏃‍♂️💨\n\nExperience the pinnacle of responsive cushioning, ultralight aerodynamic support, and explosive energy return with every single stride.\n\n👟 Precision-engineered breathable upper\n⚡ High-rebound foam for effortless pace\n🏁 Built for marathon race days and daily asphalt grinding\n\nYour next personal best is waiting. Don't just run — own the ground beneath you.`;
-        ctaText = `👉 Tap the link in bio to gear up with the latest ${displayBrand} collection.`;
-      } else if (platform === 'LinkedIn') {
-        bodyText = `Innovation in athletic performance is not about incremental adjustments — it is about redefining human potential through science and design.\n\nBy integrating athlete biometric feedback, responsive midsole polymers, and sustainable circular manufacturing, ${displayBrand} continues to set the global benchmark for high-performance footwear.\n\nKey Performance Drivers:\n• 35% higher energy return through advanced sole geometry\n• Ultralight breathable support tested under competitive race conditions\n• Sustainable circular materials engineered for maximum longevity\n\nHow is athletic technology influencing your team's mindset and endurance goals?`;
-        ctaText = `👉 Explore the engineering behind our latest release.`;
-      } else if (platform === 'X (Twitter)') {
-        bodyText = `⚡ Speed isn't just about pace — it's about what you have under your feet.\n\nEngineered for maximum energy return and zero compromise. Meet your new running standard.\n\nGear up today. 👇`;
-        ctaText = `Shop running performance now.`;
-      } else {
-        bodyText = `Ready to crush your fitness goals this season? 🏃‍♀️⚡\n\nWhether you're training for your first 5K or chasing a marathon PR, the right gear makes all the difference.\n\nExperience lightweight comfort, responsive cushioning, and durability that goes the distance with ${displayBrand}.`;
-        ctaText = `👉 Step into greatness. Shop the collection today!`;
-      }
-
-      hashtagTokens = [
-        `#${displayBrand.replace(/\s+/g, '')}Running`,
-        '#RunningShoes',
-        '#JustDoIt',
-        '#MarathonTraining',
-        '#FitnessMotivation',
-        '#RunnersOfInstagram',
-        '#AthleticPerformance',
-        '#SpeedAndEndurance',
-      ];
-    } else if (lowerTopic.includes('pizza') || lowerTopic.includes('restaurant') || lowerTopic.includes('food') || lowerTopic.includes('dining') || lowerTopic.includes('cafe')) {
-      hookText = `🍕 Fresh Out of the Wood-Fired Oven: Handcrafted Culinary Passion at ${displayBrand}.`;
-      
-      if (platform === 'Instagram') {
-        bodyText = `🤤 Savor every single bite. 🍕✨\n\nCrafted with 48-hour slow-fermented artisan dough, crushed San Marzano tomatoes, fresh creamy buffalo mozzarella, and aromatic farm-fresh basil — baked at 900°F to blistered, crispy perfection.\n\n🔥 Hand-stretched wood-fired artisan crust\n🧀 Melted gourmet cheeses & savory toppings\n🌿 Farm-to-table organic herbs and olive oil\n\nGreat memories start around great food. Gather your crew and taste what authentic culinary craft feels like.`;
-        ctaText = `👉 Tap the link in bio to reserve your table or order fresh to your door!`;
-      } else if (platform === 'LinkedIn') {
-        bodyText = `Behind every exceptional dining experience lies culinary integrity, supply chain precision, and hospitality excellence.\n\nAt ${displayBrand}, our kitchen philosophy focuses on:\n• Direct partnerships with local organic growers and artisan producers\n• Traditional culinary techniques blended with modern hospitality efficiency\n• Creating welcoming dining spaces that foster real human connection\n\nIn an era of automated convenience, authentic craftsmanship remains the ultimate differentiator in hospitality.`;
-        ctaText = `👉 Learn more about our culinary journey and locations.`;
-      } else if (platform === 'X (Twitter)') {
-        bodyText = `🍕 Craving the real deal? Crispy blistered crust, bubbly melted mozzarella, and fresh basil straight from our wood-fired oven.\n\nTreat yourself tonight at ${displayBrand}. Order now! 👇`;
-        ctaText = `Order your favorite artisan dishes now!`;
-      } else {
-        bodyText = `Dinner plans sorted! 🍕🍷 Bring your family and friends together for an unforgettable dining experience handcrafted with love, fresh ingredients, and time-honored recipes.\n\nTag your favorite foodie buddy in the comments below! 👇`;
-        ctaText = `👉 Book your table or order online for delivery!`;
-      }
-
-      hashtagTokens = [
-        `#${displayBrand.replace(/\s+/g, '')}Food`,
-        '#ArtisanPizza',
-        '#ItalianDining',
-        '#GourmetFood',
-        '#FoodieGram',
-        '#FreshIngredients',
-        '#WoodFiredOven',
-        '#RestaurantExperience',
-      ];
-    } else {
-      // Dynamic semantic composition for any general or new topic
-      const topicTitle = topic.length < 50 ? topic : topic.substring(0, 45);
-      hookText = `✨ Elevate Your Experience: ${topicTitle} with ${displayBrand}.`;
-      
-      if (platform === 'Instagram') {
-        bodyText = `💡 Discover what happens when innovation meets dedication. ✨\n\nWhether you're looking to transform your workflow, upgrade your daily lifestyle, or unlock new possibilities, ${displayBrand} delivers exceptional solutions designed around what matters most to you.\n\n🎯 Tailored specifically for ${targetAudience || 'discerning customers'}\n⚡ Built for reliability, speed, and real-world impact\n🌟 Proven quality you can trust every single day\n\nTake the next step and experience the difference firsthand.`;
-        ctaText = `👉 ${objective || 'Tap the link in bio to learn more and get started today!'}`;
-      } else if (platform === 'LinkedIn') {
-        bodyText = `Navigating modern market challenges requires forward-thinking strategy, strategic focus, and dependable partners.\n\nWith ${topic}, ${displayBrand} is helping ${targetAudience || 'leaders and professionals'} achieve tangible outcomes through purposeful design and execution.\n\nKey Strategic Pillars:\n• Delivering measurable value across every touchpoint\n• Eliminating friction and streamlining complex processes\n• Building sustainable, scalable growth for long-term success\n\nWhat priorities are guiding your strategic initiatives this quarter? Let's discuss below.`;
-        ctaText = `👉 Connect with our team to discover how we can support your goals.`;
-      } else if (platform === 'X (Twitter)') {
-        bodyText = `✨ Ready to transform the way you approach ${topicTitle}? ${displayBrand} brings precision, clarity, and results.\n\nFind out how we're making it happen. 👇`;
-        ctaText = `Explore the details now.`;
-      } else {
-        bodyText = `We are excited to share what we've been working on! ✨\n\n${topicTitle} is all about giving you better tools, better value, and a better experience from start to finish.\n\nSee how ${displayBrand} is making a real difference today.`;
-        ctaText = `👉 Check it out today and let us know your thoughts!`;
-      }
-
-      const topicWords = topic
-        .replace(/[^a-zA-Z0-9\s]/g, '')
-        .split(/\s+/)
-        .filter(w => w.length > 2)
-        .slice(0, 4)
-        .map(w => `#${w.charAt(0).toUpperCase() + w.slice(1)}`);
-
-      hashtagTokens = [
-        `#${displayBrand.replace(/\s+/g, '')}`,
-        ...topicWords,
-        '#Innovation',
-        '#QualityFirst',
-        '#GrowthMindset',
-      ];
-    }
-
-    const structuredContent = `**Hook / Headline:**
-${hookText}
-
-**Main Content:**
-${bodyText}
-
-**Call to Action:**
-${ctaText}
-
-**Hashtags:**
-${hashtagTokens.join(' ')}`;
-
-    return {
-      content:     structuredContent,
-      headline:    hookText,
-      caption:     bodyText,
-      cta:         ctaText,
-      hashtags:    hashtagTokens,
-      type,
-      platform,
-      topic,
-      brandName:   effectiveBrandName,
-      model:       'zenvora-creative-ai-v2',
-      generatedAt: new Date().toISOString(),
-    };
+    // Never return fake static content when real provider is unavailable
+    throw new Error(
+      'Gemini AI inference unavailable: No GEMINI_API_KEY configured or API call failed. Please set GEMINI_API_KEY in the Render dashboard or provide your API key via the API Key button in the top navigation.'
+    );
   },
 
   /**
@@ -405,6 +320,7 @@ ${hashtagTokens.join(' ')}`;
     tone     = 'Authoritative and insightful',
     length   = 'Comprehensive (1500+ words)',
     brandGuidelines = null,
+    customApiKey = '',
   }) => {
     const brandVoice = brandGuidelines?.brandVoice || 'Authoritative, analytical, and actionable';
 
@@ -428,7 +344,7 @@ Output valid JSON containing:
 - readingTime (minutes number)
 - seoScore (number between 85-98)`;
 
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt);
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
     if (liveResult) {
       try {
         const cleaned = liveResult.text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -454,62 +370,7 @@ Output valid JSON containing:
       }
     }
 
-    // Topic-specific fallback — no hardcoded SaaS/B2B content
-    const blogTitle = `${topic}: A Complete Guide`;
-    const metaDesc  = `Learn everything about ${targetKeyword || topic} with this comprehensive guide covering key strategies and best practices.`;
-
-    const outline = [
-      { heading: `1. Introduction to ${topic}`,           subpoints: ['Overview', 'Why it matters now'] },
-      { heading: '2. Core Strategies',                    subpoints: ['Step-by-step framework', 'Common approaches'] },
-      { heading: '3. Implementation',                     subpoints: ['Getting started', 'Tools and resources'] },
-      { heading: '4. Measuring Success',                  subpoints: ['Key metrics', 'Iteration and improvement'] },
-    ];
-
-    const contentMarkdown = `## Introduction
-
-**${targetKeyword || topic}** is a rapidly evolving area that demands both strategic thinking and practical execution.
-
-Understanding the fundamentals is the first step toward achieving meaningful results.
-
-### Why ${topic} Matters
-
-Whether you are just starting or looking to refine your approach, the principles outlined here apply across different contexts and scales.
-
-Key themes to explore:
-- **${secondaryKeywords[0] || 'Strategy and planning'}**
-- **${secondaryKeywords[1] || 'Execution and measurement'}**
-- **${secondaryKeywords[2] || 'Continuous improvement'}**
-
-### Getting Started
-
-Begin by defining clear goals, understanding your target audience, and building a systematic approach to ${targetKeyword || topic}.
-
-## Conclusion
-
-Mastering **${targetKeyword || topic}** is an ongoing journey. Start with the fundamentals, measure your progress, and iterate based on real data.`;
-
-    const faqs = [
-      {
-        question: `What is the best way to approach ${targetKeyword || topic}?`,
-        answer:   `Start by understanding your audience and goals, then build a systematic strategy that you can measure and refine over time.`,
-      },
-      {
-        question: 'How long does it take to see results?',
-        answer:   'Results vary depending on your starting point, resources, and consistency. Most approaches begin showing measurable results within 30-90 days.',
-      },
-    ];
-
-    return {
-      seoTitle:        blogTitle.slice(0, 58),
-      metaDescription: metaDesc.slice(0, 155),
-      outline,
-      faqs,
-      content:         contentMarkdown,
-      readingTime:     5,
-      seoScore:        88,
-      model:           'zenvora-engine-v1',
-      generatedAt:     new Date().toISOString(),
-    };
+    throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API call failed. Please set GEMINI_API_KEY in Render dashboard or provide your key in browser settings.');
   },
 
   /**
@@ -524,20 +385,31 @@ Mastering **${targetKeyword || topic}** is an ongoing journey. Start with the fu
     industry       = '',
     targetAudience = '',
     keywords       = '',
+    customApiKey   = '',
   }) => {
     const brandLine    = brandName    ? `Brand: ${brandName}` : '';
     const industryLine = industry     ? `Industry: ${industry}` : '';
     const audienceLine = targetAudience ? `Target Audience: ${targetAudience}` : '';
     const kwLine       = keywords     ? `Keywords to include: ${keywords}` : '';
 
+    const strictOffer = extractStrictOffer(topic);
+    const offerMandate = buildStrictOfferRules(strictOffer, `User Topic: "${topic}"`);
+
     const systemPrompt = `You are an expert social media copywriter. Write captions that are specific, engaging, and relevant to the given topic, brand, and platform.
-RULES: Every caption must relate to the exact topic provided. Never use generic marketing phrases unrelated to the topic.`;
+
+${offerMandate}
+
+RULES:
+1. Every caption must relate to the exact topic and preserve the exact offer "${strictOffer || topic}".
+2. Never inflate discounts (e.g. NEVER change 50% into 80%).
+3. Never invent bank discounts, EMI, or unverified categories.`;
 
     const prompt = `Write ${count} distinct ${platform} captions about: "${topic}".
 ${brandLine}
 ${industryLine}
 ${audienceLine}
 ${kwLine}
+EXACT OFFER: ${strictOffer || 'None. Do not invent discounts.'}
 Tone: ${tone}
 
 Requirements:
@@ -545,7 +417,7 @@ Requirements:
 - Include relevant emojis
 - Include relevant hashtags at the end of each caption (3-5 hashtags, each a separate token)
 - Captions must be appropriate for ${platform} length and style
-- Each caption must clearly be about "${topic}"
+- Each caption must clearly be about "${topic}" and strictly use "${strictOffer || 'the stated offer'}"
 
 Format each caption as:
 **Caption [number] — [Style/Angle]:**
@@ -554,11 +426,11 @@ Format each caption as:
 [hashtags]
 ---`;
 
-    const live = await GeminiService.callGemini(prompt, systemPrompt);
+    const live = await GeminiService.callGemini(prompt, systemPrompt, customApiKey);
 
     if (live) {
       // Parse into structured array
-      const rawText = live.text;
+      const rawText = sanitizeGeneratedText(live.text, strictOffer, topic);
       const sections = rawText.split(/---+/).filter(s => s.trim().length > 20);
 
       if (sections.length >= 2) {
@@ -571,11 +443,11 @@ Format each caption as:
           return {
             id:    i + 1,
             style,
-            text:  textLines.join('\n').trim(),
+            text:  sanitizeGeneratedText(textLines.join('\n').trim(), strictOffer, topic),
             tags:  tagLine.trim(),
           };
         });
-        return { captions, model: live.source };
+        return { captions, strictOffer, model: live.source };
       }
 
       // Simpler parse if format differs
@@ -584,49 +456,15 @@ Format each caption as:
         captions: chunks.map((c, i) => ({
           id:    i + 1,
           style: `Variation ${i + 1}`,
-          text:  c.replace(/#\S+/g, '').trim(),
+          text:  sanitizeGeneratedText(c.replace(/#\S+/g, '').trim(), strictOffer, topic),
           tags:  (c.match(/#\S+/g) || []).join(' '),
         })),
+        strictOffer,
         model: live.source,
       };
     }
 
-    // Topic-specific fallback
-    const brand    = brandName || 'Our Brand';
-    const cleanT   = topic.replace(/\s+/g, '');
-    const cleanB   = (brandName || '').replace(/\s+/g, '');
-    const kws      = keywords ? keywords.split(',').map(k => `#${k.trim().replace(/\s+/g, '')}`).join(' ') : '';
-
-    return {
-      captions: [
-        {
-          id: 1, style: 'The Hook',
-          text: `🎯 ${topic} — here's what you need to know.\n\n${brand} is leading the way in ${industry || 'this space'} and we're here to share our insights.\n\nSave this for later! 📌`,
-          tags: `#${cleanT} ${cleanB ? '#' + cleanB : ''} ${kws}`.trim(),
-        },
-        {
-          id: 2, style: 'The Story',
-          text: `✨ ${topic} has changed everything for ${brand}.\n\nHere's our experience and what we learned along the way. The results surprised even us.\n\nSwipe to see the full story 👉`,
-          tags: `#${cleanT} #BehindTheScenes ${kws}`.trim(),
-        },
-        {
-          id: 3, style: 'The Question',
-          text: `🤔 What do you think about ${topic}?\n\nAt ${brand}, we believe ${targetAudience || 'our community'} deserves the best — and we want to hear from you.\n\nDrop your thoughts below 👇`,
-          tags: `#${cleanT} #Discussion #Community ${kws}`.trim(),
-        },
-        {
-          id: 4, style: 'The Tip',
-          text: `💡 Pro tip about ${topic}:\n\nMost people overlook this, but ${brand} has discovered that the key is consistency + the right strategy.\n\nSave this post for your next campaign! ⚡`,
-          tags: `#${cleanT} #Tips #ProTips ${kws}`.trim(),
-        },
-        {
-          id: 5, style: 'The CTA',
-          text: `🚀 Ready to experience ${topic} like never before?\n\n${brand} has everything you need for ${targetAudience || 'your goals'}. Don't wait — the opportunity is now.\n\n👉 Link in bio for more!`,
-          tags: `#${cleanT} #CallToAction ${cleanB ? '#' + cleanB : ''} ${kws}`.trim(),
-        },
-      ],
-      model: 'zenvora-engine-v1',
-    };
+    throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API call failed. Please set GEMINI_API_KEY in Render dashboard or provide your key in browser settings.');
   },
 
   /**
@@ -638,6 +476,7 @@ Format each caption as:
     industry  = '',
     brandName = '',
     count     = 25,
+    customApiKey = '',
   }) => {
     const systemPrompt = `You are a hashtag strategy expert. Generate relevant, effective hashtags for social media.
 RULES: Every hashtag must be relevant to the specific niche/topic provided. Each hashtag is a separate #token.
@@ -668,7 +507,7 @@ Rules:
 - Each is a SEPARATE #token (no spaces inside a hashtag)
 - No duplicate hashtags across tiers`;
 
-    const live = await GeminiService.callGemini(prompt, systemPrompt);
+    const live = await GeminiService.callGemini(prompt, systemPrompt, customApiKey);
 
     if (live) {
       // Try to parse into clusters

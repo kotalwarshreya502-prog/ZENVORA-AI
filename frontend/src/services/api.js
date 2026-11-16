@@ -2,9 +2,32 @@ import axios from 'axios';
 
 /**
  * ZENVORA AI - Centralized Axios API Service
- * Base URL defaults to /api (proxied by Vite to port 5000) or VITE_API_URL
+ * Intelligently resolves to production Render backend or local dev server.
  */
-const baseURL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+const resolveBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim() !== '' && !envUrl.startsWith('/api')) {
+    return envUrl.trim();
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host.includes('onrender.com') || host.includes('zenvora')) {
+      return 'https://zenvora-ai-backend.onrender.com/api';
+    }
+  }
+  return import.meta.env.PROD ? 'https://zenvora-ai-backend.onrender.com/api' : 'http://localhost:5000/api';
+};
+
+const baseURL = resolveBaseUrl();
+
+export const resolveImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  const origin = baseURL.replace(/\/api\/?$/, '');
+  return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
+};
 
 const apiClient = axios.create({
   baseURL,
@@ -72,16 +95,18 @@ export const api = {
   generateProductDescription: (data) => apiClient.post('/ai/product-description', data),
 
   // ── Marketing Campaigns ──────────────────────────────────────────────────
-  getCampaigns:    ()           => apiClient.get('/campaigns'),
-  createCampaign:  (data)       => apiClient.post('/campaigns', data),
-  updateCampaign:  (id, data)   => apiClient.put(`/campaigns/${id}`, data),
-  deleteCampaign:  (id)         => apiClient.delete(`/campaigns/${id}`),
+  getCampaigns:           ()     => apiClient.get('/campaigns'),
+  createCampaign:         (data) => apiClient.post('/campaigns', data),
+  updateCampaign:         (id, data) => apiClient.put(`/campaigns/${id}`, data),
+  deleteCampaign:         (id)   => apiClient.delete(`/campaigns/${id}`),
+  generateCampaignPlan:   (data) => apiClient.post('/campaigns/generate-strategy', data),
 
   // ── Posts & Captions ────────────────────────────────────────────────────
   getPosts:    (params) => apiClient.get('/posts', { params }),
   createPost:  (data)   => apiClient.post('/posts', data),
   updatePost:  (id, data) => apiClient.put(`/posts/${id}`, data),
   deletePost:  (id)     => apiClient.delete(`/posts/${id}`),
+  publishPost: (id)     => apiClient.post(`/posts/${id}/publish`),
 
   // ── Blogs ────────────────────────────────────────────────────────────────
   getBlogs:    ()         => apiClient.get('/blogs'),
@@ -95,7 +120,8 @@ export const api = {
   updateBrandGuidelines: (data) => apiClient.put('/brand', data),
 
   // ── SEO Audit & Heuristics ───────────────────────────────────────────────
-  analyzeSeo: (data) => apiClient.post('/seo/analyze', data),
+  analyzeSeo:       (data) => apiClient.post('/seo/analyze', data),
+  researchKeywords: (data) => apiClient.post('/seo/keywords', data),
 
   // ── Marketing Analytics ──────────────────────────────────────────────────
   getAnalytics: () => apiClient.get('/analytics'),
@@ -105,8 +131,12 @@ export const api = {
   scheduleCalendarEvent:(data) => apiClient.post('/calendar/schedule', data),
 
   // ── Business Profile ─────────────────────────────────────────────────────
-  getBusinessProfile:    ()     => apiClient.get('/business'),
-  updateBusinessProfile: (data) => apiClient.put('/business', data),
+  getBusinessProfile:    ()           => apiClient.get('/business'),
+  updateBusinessProfile: (data)       => apiClient.put('/business', data),
+  analyzeWebsite:        (websiteUrl) => apiClient.post('/business/analyze-website', { websiteUrl }),
+
+  // ── Autonomous Multi-Agent Marketing Engine ──────────────────────────────
+  runAutonomousAgent: (data) => apiClient.post('/ai/agent', data),
 
   // ── Social Integrations ───────────────────────────────────────────────────
   getIntegrations:   ()            => apiClient.get('/integrations'),
@@ -126,7 +156,7 @@ export const api = {
   // ── Competitor Analysis ──────────────────────────────────────────────────
   analyzeCompetitor: (data) => apiClient.post('/competitor/analyze', data),
 
-  // ── Image / Poster Generation (Pollinations.ai) ──────────────────────────
+  // ── Image / Poster Generation (Google Gemini Image / Imagen 3) ──────────
   generatePosterImage:   (data) => apiClient.post('/image/generate', data),
   generateSocialGraphic: (data) => apiClient.post('/image/social', data),
 
@@ -141,6 +171,7 @@ export const api = {
   deleteHistoryItem: (id)       => apiClient.delete(`/history/${id}`),
 
   // ── File Download Helper ──────────────────────────────────────────────────
+  resolveImageUrl,
   downloadImage: async (imageUrl, filename = 'zenvora-creative.jpg') => {
     try {
       const response = await fetch(imageUrl, { mode: 'cors' });

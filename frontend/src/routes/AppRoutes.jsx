@@ -17,6 +17,7 @@ import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 
 // Dashboard Pages
 import OverviewDashboard from '../pages/dashboard/OverviewDashboard';
+import AiAgentPage from '../pages/dashboard/AiAgentPage';
 import BusinessProfilePage from '../pages/dashboard/BusinessProfilePage';
 import ContentStudioPage from '../pages/dashboard/ContentStudioPage';
 import BlogGeneratorPage from '../pages/dashboard/BlogGeneratorPage';
@@ -93,6 +94,7 @@ export const AppRoutes = () => {
         {/* Protected SaaS Dashboard Routes */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<OverviewDashboard />} />
+          <Route path="ai-agent" element={<AiAgentPage />} />
           <Route path="business-profile" element={<BusinessProfilePage />} />
           <Route path="content-studio" element={<ContentStudioPage />} />
           <Route path="blog-generator" element={<BlogGeneratorPage />} />

@@ -47,3 +47,6 @@ Thumbs.db
 *.sublime-workspace
 *.swp
 *.swo
+
+# Generated image uploads (large binary assets — do not commit to git)
+backend/uploads/

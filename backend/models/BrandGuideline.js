@@ -37,6 +37,10 @@ const brandGuidelineSchema = new mongoose.Schema(
       type: [String],
       default: ['AI Marketing Automation', 'SEO Content Engine', 'Social Media Scheduling'],
     },
+    uniqueSellingPoints: {
+      type: [String],
+      default: [],
+    },
     preferredKeywords: {
       type: [String],
       default: ['sustainable growth', 'smart marketing', 'organic traffic', 'conversion rate'],
