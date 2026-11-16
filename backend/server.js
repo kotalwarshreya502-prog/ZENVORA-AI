@@ -39,8 +39,13 @@ if (process.env.CLIENT_URL) {
   });
 }
 
+// ─── Trust Proxy for Render & Reverse Proxies ──────────────────────────────
+app.set('trust proxy', 1);
+
 // ─── Security ─────────────────────────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // ─── Request Logging ──────────────────────────────────────────────────────────
 if (NODE_ENV !== 'test') {

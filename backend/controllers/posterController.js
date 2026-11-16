@@ -183,7 +183,9 @@ export const generatePoster = async (req, res) => {
     const designSpec = buildDesignSpec(analysis, researchData);
 
     const host = req.get('host') || 'localhost:5000';
-    const protocol = req.protocol || 'http';
+    const forwardedProto = req.headers['x-forwarded-proto'];
+    const isHttps = forwardedProto === 'https' || req.secure || host.includes('render.com') || host.includes('zenvora') || process.env.NODE_ENV === 'production';
+    const protocol = isHttps ? 'https' : 'http';
     const fullImageUrl = `${protocol}://${host}${imageResult.localUrl}`;
 
     const output = {

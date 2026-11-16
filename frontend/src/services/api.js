@@ -22,11 +22,23 @@ const baseURL = resolveBaseUrl();
 
 export const resolveImageUrl = (url) => {
   if (!url || typeof url !== 'string') return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+
+  // 1. Force HTTPS on production or when current page is served over HTTPS (prevents Mixed Content blocks)
+  if (url.startsWith('http://')) {
+    const isProdHost = url.includes('render.com') || url.includes('zenvora') || (typeof window !== 'undefined' && window.location.protocol === 'https:');
+    if (isProdHost) {
+      url = url.replace(/^http:\/\//i, 'https://');
+    }
+  }
+
+  if (url.startsWith('https://') || url.startsWith('http://') || url.startsWith('data:')) {
     return url;
   }
+
+  // 2. Resolve relative path against API origin
   const origin = baseURL.replace(/\/api\/?$/, '');
-  return `${origin}${url.startsWith('/') ? '' : '/'}${url}`;
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${origin}${cleanPath}`;
 };
 
 const apiClient = axios.create({

@@ -256,7 +256,7 @@ export const SocialGeneratorPage = () => {
       // ── Process Visual Creative Response ──
       if (posterRes.status === 'fulfilled') {
         const pPayload = posterRes.value?.data ?? posterRes.value;
-        const rawImgUrl = pPayload?.fullImageUrl || pPayload?.imageUrl;
+        const rawImgUrl = pPayload?.localUrl || pPayload?.fullImageUrl || pPayload?.imageUrl;
         const resolvedUrl = rawImgUrl ? api.resolveImageUrl(rawImgUrl) : '';
         const fallbackUrl = pPayload?.fallbackImageUrl ? api.resolveImageUrl(pPayload.fallbackImageUrl) : '';
         const logo = pPayload?.logoResult?.logoUrl;
@@ -311,10 +311,20 @@ export const SocialGeneratorPage = () => {
 
   // Image load error handler: smoothly cascade to fallback without failing
   const handleImageError = () => {
+    console.warn('[SocialGen] Image failed to load:', activeVisualUrl);
     setPostImgError(true);
+    // If it was an insecure http URL on production, upgrade to https
+    if (activeVisualUrl && activeVisualUrl.startsWith('http://')) {
+      const secureUrl = activeVisualUrl.replace(/^http:\/\//i, 'https://');
+      setActiveVisualUrl(secureUrl);
+      setPostImgLoaded(false);
+      setPostImgError(false);
+      return;
+    }
     if (fallbackImageUrl && activeVisualUrl !== fallbackImageUrl) {
       setActiveVisualUrl(fallbackImageUrl);
-      setPostImgLoaded(true);
+      setPostImgLoaded(false);
+      setPostImgError(false);
     } else {
       setPostImgLoaded(true);
     }
@@ -1070,10 +1080,14 @@ export const SocialGeneratorPage = () => {
                       <img
                         src={activeVisualUrl}
                         alt={topic}
-                        onLoad={() => setPostImgLoaded(true)}
+                        crossOrigin="anonymous"
+                        onLoad={() => {
+                          setPostImgLoaded(true);
+                          setPostImgError(false);
+                        }}
                         onError={handleImageError}
                         className={`w-full h-full object-cover transition-opacity duration-500 ${
-                          postImgLoaded ? 'opacity-100' : 'opacity-0'
+                          postImgLoaded && !postImgError ? 'opacity-100' : 'opacity-0'
                         }`}
                       />
                     </>
