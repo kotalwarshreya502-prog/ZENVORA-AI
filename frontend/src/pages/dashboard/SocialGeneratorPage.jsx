@@ -231,15 +231,17 @@ export const SocialGeneratorPage = () => {
       // Await both in parallel
       const [contentRes, posterRes] = await Promise.allSettled([contentPromise, posterPromise]);
 
+      let postText = '';
+      let modelUsed = 'gemini-1.5-flash';
+
       // ── Process Content Response ──
       if (contentRes.status === 'fulfilled') {
         const payload = contentRes.value?.data ?? contentRes.value;
         const text = payload?.content ?? payload?.text;
-        const model = payload?.model || 'gemini-1.5-flash';
 
         if (text) {
-          setGeneratedPost(text);
-          setAiModel(model);
+          postText = text;
+          modelUsed = payload?.model || 'gemini-1.5-flash';
 
           if (payload?.headline) setExtractedHeadline(payload.headline);
           if (payload?.cta) setExtractedCta(payload.cta);
@@ -268,8 +270,34 @@ export const SocialGeneratorPage = () => {
         if (resolvedUrl || fallbackUrl) {
           setActiveVisualUrl(resolvedUrl || fallbackUrl);
         }
+
+        // If content response was rejected or empty, synthesize high-impact copy from poster design spec!
+        if (!postText && spec) {
+          const specHeadline = spec.headline || `${effectiveBrand}: ${detectedOffer || topic}`;
+          const specSub = spec.subheadline || 'Engineered for comfort, performance, and everyday style.';
+          const specCta = spec.cta || 'Shop Now →';
+          const safeTags = [
+            `#${effectiveBrand.replace(/[^a-zA-Z0-9]/g, '') || 'Brand'}`,
+            `#${topic.split(/\s+/)[0]?.replace(/[^a-zA-Z0-9]/g, '') || 'Sale'}`,
+            detectedOffer ? `#${detectedOffer.replace(/[^a-zA-Z0-9]/g, '')}` : '#SpecialOffer',
+            `#${platform.replace(/[^a-zA-Z0-9]/g, '')}`,
+            '#ViralDeals',
+          ].filter(Boolean);
+
+          postText = `✨ ${specHeadline}\n\n${specSub}\n\n👉 ${specCta}\n\n${safeTags.join(' ')}`;
+          setExtractedHeadline(specHeadline);
+          setExtractedCta(specCta);
+          setExtractedHashtags(safeTags);
+        }
       } else {
         console.warn('[SocialGen] Poster generation issue:', posterRes.reason);
+      }
+
+      if (postText) {
+        setGeneratedPost(postText);
+        setAiModel(modelUsed);
+      } else if (contentRes.status === 'rejected') {
+        setError(contentRes.reason?.message || 'Content generation encountered an error. Please try again.');
       }
 
     } catch (err) {
@@ -960,8 +988,19 @@ export const SocialGeneratorPage = () => {
                 <Sparkles size={40} className="opacity-30 text-brand-violet" />
                 <p className="text-sm font-medium text-slate-600">No Post Generated Yet</p>
                 <p className="text-xs text-slate-400 text-center max-w-sm">
-                  Enter your topic on the left (e.g. &ldquo;flipkart diwali offer&rdquo;) and click <strong>Generate Post</strong> to see your dynamic AI copy and real creative visual.
+                  {topic.trim()
+                    ? `Ready to generate! Click the button below to generate your commercial post and advertising creative for "${topic}".`
+                    : 'Enter your campaign topic on the left and click Generate Post to see your dynamic AI copy and real creative visual.'}
                 </p>
+                <button
+                  type="button"
+                  onClick={(e) => handleGenerate(e, false)}
+                  disabled={!topic.trim()}
+                  className="mt-3 flex items-center gap-2 px-6 py-2.5 rounded-lg bg-brand-violet hover:bg-brand-violet/90 text-white font-semibold text-xs shadow-md shadow-brand-violet/25 transition-all disabled:opacity-40"
+                >
+                  <Sparkles size={16} />
+                  <span>Generate Post Now</span>
+                </button>
               </div>
             )}
 

@@ -37,6 +37,7 @@ export const getHealth = async (req, res) => {
 
   let textAiStatus = geminiConfigured ? 'available' : 'unconfigured';
   let textAiLatencyMs = null;
+  let textAiError = null;
 
   if (geminiConfigured && isDeep) {
     try {
@@ -53,9 +54,16 @@ export const getHealth = async (req, res) => {
         }
       );
       textAiLatencyMs = Date.now() - start;
-      textAiStatus = testRes.ok ? 'connected' : `api_error_${testRes.status}`;
-    } catch {
+      if (testRes.ok) {
+        textAiStatus = 'connected';
+      } else {
+        const errText = await testRes.text();
+        textAiStatus = `api_error_${testRes.status}`;
+        textAiError = errText.slice(0, 300);
+      }
+    } catch (e) {
       textAiStatus = 'network_unreachable';
+      textAiError = e.message;
     }
   }
 
@@ -65,6 +73,7 @@ export const getHealth = async (req, res) => {
     configured: geminiConfigured,
     models: ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'],
     latencyMs: textAiLatencyMs,
+    errorDetail: textAiError,
   };
 
   // 4. Image AI Engine Status (Google DeepMind Imagen 3 / Enterprise FLUX.1)
