@@ -19,7 +19,7 @@ const CATEGORY_KEYWORDS = {
   food:        ['restaurant', 'food', 'cafe', 'cuisine', 'recipe', 'menu', 'chef', 'eat', 'dining', 'pizza', 'burger', 'bakery', 'coffee', 'bistro', 'gourmet', 'culinary', 'cake', 'chocolate cake', 'dessert', 'pastry'],
   fashion:     ['fashion', 'clothing', 'apparel', 'outfit', 'wear', 'couture', 'garment', 'collection', 'summer collection', 'dress', 'linen'],
   healthcare:  ['health', 'medical', 'hospital', 'wellness', 'clinic', 'doctor', 'pharmacy', 'fitness', 'gym', 'yoga', 'dental', 'care', 'therapy', 'checkup', 'preventive'],
-  education:   ['education', 'coaching', 'classes', 'institute', 'school', 'college', 'university', 'admission', 'course', 'training', 'learn', 'academy', 'student', 'batches', 'campus', 'degree', 'study', 'admissions open'],
+  education:   ['education', 'coaching', 'classes', 'institute', 'school', 'college', 'university', 'admission', 'course', 'training', 'learn', 'academy', 'student', 'batches', 'campus', 'degree', 'study', 'admissions open', 'book', 'books', 'textbook', 'library', 'reading'],
   realestate:  ['real estate', 'property', 'apartment', 'villa', 'flat', 'housing', 'builder', 'plot', 'residence', 'realtor', 'architecture', 'penthouse', 'homes'],
   automotive:  ['car', 'vehicle', 'automobile', 'motorcycle', 'electric vehicle', 'suv', 'test drive', 'dealership'],
   travel:      ['travel', 'tourism', 'hotel', 'resort', 'holiday', 'vacation', 'tour', 'destination', 'flight', 'adventure', 'cruise', 'getaway'],

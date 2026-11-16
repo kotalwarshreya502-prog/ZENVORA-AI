@@ -226,6 +226,8 @@ export const SocialGeneratorPage = () => {
         customHeadline: extractedHeadline || `${effectiveBrand ? effectiveBrand + ' ' : ''}${detectedOffer || topic}`.trim(),
         customOffer: detectedOffer,
         customCta: ctaType,
+        seed: isRegen ? Date.now() + Math.floor(Math.random() * 1000) : Date.now(),
+        category: resolvedIndustry || '',
       });
 
       // Await both in parallel

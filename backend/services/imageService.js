@@ -175,7 +175,7 @@ async function generateWithOpenAIDallE3(prompt, apiKey, width = 1024, height = 1
 /**
  * Match a verified authentic generated visual from local repository storage
  */
-function findVerifiedCampaignAsset(topic = '', category = '') {
+function findVerifiedCampaignAsset(topic = '', category = '', seed = 0) {
   const candidateDirs = [seedAssetsDir, postersDir].filter(d => fs.existsSync(d));
   if (candidateDirs.length === 0) return null;
 
@@ -183,47 +183,56 @@ function findVerifiedCampaignAsset(topic = '', category = '') {
   const cLow = (category || '').toLowerCase();
 
   let targetPrefixes = [];
-  if (tLow.includes('sneaker') || tLow.includes('shoe') || cLow === 'footwear') {
+  if (tLow.includes('book') || tLow.includes('education') || tLow.includes('study') || tLow.includes('academy') || tLow.includes('course') || tLow.includes('admission') || tLow.includes('batch') || tLow.includes('student') || cLow === 'education') {
+    targetPrefixes = ['education_books_library_study'];
+  } else if (tLow.includes('real estate') || tLow.includes('apartment') || tLow.includes('villa') || tLow.includes('property') || tLow.includes('home') || cLow === 'realestate') {
+    targetPrefixes = ['realestate_luxury_apartment_architecture'];
+  } else if (tLow.includes('sneaker') || tLow.includes('shoe') || cLow === 'footwear') {
     targetPrefixes = ['flipkart_premium_sneakers'];
-  } else if (tLow.includes('smartphone') || tLow.includes('technova') || cLow === 'smartphone') {
+  } else if (tLow.includes('smartphone') || tLow.includes('phone') || tLow.includes('technova') || cLow === 'smartphone') {
     targetPrefixes = ['technova_flagship_smartphone'];
-  } else if (tLow.includes('cake') || tLow.includes('sweet delight') || cLow === 'food') {
+  } else if (tLow.includes('cake') || tLow.includes('food') || tLow.includes('sweet delight') || cLow === 'food') {
     targetPrefixes = ['sweet_delight_chocolate_cake'];
-  } else if (tLow.includes('summer') || tLow.includes('urban style') || cLow === 'fashion') {
+  } else if (tLow.includes('summer') || tLow.includes('urban style') || tLow.includes('fashion') || tLow.includes('cloth') || cLow === 'fashion') {
     targetPrefixes = ['urban_style_summer_editorial'];
-  } else if (tLow.includes('health') || tLow.includes('wellness') || cLow === 'healthcare') {
+  } else if (tLow.includes('health') || tLow.includes('wellness') || tLow.includes('medical') || cLow === 'healthcare') {
     targetPrefixes = ['healthcare_plus_awareness'];
-  } else if (tLow.includes('diwali') || tLow.includes('festive') || cLow.includes('festive') || cLow === 'ecommerce') {
+  } else if (tLow.includes('diwali') || tLow.includes('festive') || cLow.includes('festive')) {
+    targetPrefixes = ['festive_diwali_shopping_commercial'];
+  } else if (cLow === 'ecommerce') {
     targetPrefixes = ['festive_diwali_shopping_commercial', 'flipkart_premium_sneakers'];
   }
 
-  // 1. Check for specific prefix matches across dirs
+  const seedNum = Math.abs(Number(seed) || Math.floor(Math.random() * 1000));
+
+  // 1. Check for specific prefix matches across dirs (cycles through variants on regenerate)
   for (const dir of candidateDirs) {
     try {
       const files = fs.readdirSync(dir);
       for (const prefix of targetPrefixes) {
-        const matched = files.find(f => f.startsWith(prefix) && f.endsWith('.jpg'));
-        if (matched) {
+        const matching = files.filter(f => f.startsWith(prefix) && f.endsWith('.jpg'));
+        if (matching.length > 0) {
+          const selected = matching[seedNum % matching.length];
           return {
-            filename: matched,
-            fullPath: path.join(dir, matched),
-            localUrl: `/uploads/posters/${matched}`,
+            filename: selected,
+            fullPath: path.join(dir, selected),
+            localUrl: `/uploads/posters/${selected}`,
           };
         }
       }
     } catch {}
   }
 
-  // 2. Generic commercial fallback if category didn't match a specific prefix
+  // 2. Generic commercial fallback if category didn't match a specific prefix (cycles on regenerate)
   for (const dir of candidateDirs) {
     try {
       const files = fs.readdirSync(dir).filter(f => f.endsWith('.jpg') && !f.startsWith('poster-'));
       if (files.length > 0) {
-        const fallback = files.find(f => f.includes('festive')) || files[0];
+        const selected = files[seedNum % files.length];
         return {
-          filename: fallback,
-          fullPath: path.join(dir, fallback),
-          localUrl: `/uploads/posters/${fallback}`,
+          filename: selected,
+          fullPath: path.join(dir, selected),
+          localUrl: `/uploads/posters/${selected}`,
         };
       }
     } catch {}
@@ -298,7 +307,7 @@ export const ImageService = {
 
     // ── Route 4: High-Fidelity Verified Local Asset Pipeline ──────────────────
     if (!result) {
-      const verifiedAsset = findVerifiedCampaignAsset(campaignTitle || effectivePrompt, effectiveCategory);
+      const verifiedAsset = findVerifiedCampaignAsset(campaignTitle || effectivePrompt, effectiveCategory, seed);
       if (verifiedAsset) {
         console.log(`✅ [ImageService] Resolved authentic AI visual asset for ${campaignTitle}: ${verifiedAsset.filename}`);
         const filename = `poster-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
