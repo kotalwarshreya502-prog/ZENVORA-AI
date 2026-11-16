@@ -21,6 +21,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const postersDir = path.resolve(__dirname, '../uploads/posters');
+const seedAssetsDir = path.resolve(__dirname, '../assets/campaign-assets');
 
 /**
  * Resolve Google Imagen aspect ratio string from dimensions
@@ -175,34 +176,57 @@ async function generateWithOpenAIDallE3(prompt, apiKey, width = 1024, height = 1
  * Match a verified authentic generated visual from local repository storage
  */
 function findVerifiedCampaignAsset(topic = '', category = '') {
-  if (!fs.existsSync(postersDir)) return null;
+  const candidateDirs = [seedAssetsDir, postersDir].filter(d => fs.existsSync(d));
+  if (candidateDirs.length === 0) return null;
 
-  const files = fs.readdirSync(postersDir);
-  const tLow = topic.toLowerCase();
-  const cLow = category.toLowerCase();
+  const tLow = (topic || '').toLowerCase();
+  const cLow = (category || '').toLowerCase();
 
-  let targetPrefix = '';
+  let targetPrefixes = [];
   if (tLow.includes('sneaker') || tLow.includes('shoe') || cLow === 'footwear') {
-    targetPrefix = 'flipkart_premium_sneakers';
+    targetPrefixes = ['flipkart_premium_sneakers'];
   } else if (tLow.includes('smartphone') || tLow.includes('technova') || cLow === 'smartphone') {
-    targetPrefix = 'technova_flagship_smartphone';
+    targetPrefixes = ['technova_flagship_smartphone'];
   } else if (tLow.includes('cake') || tLow.includes('sweet delight') || cLow === 'food') {
-    targetPrefix = 'sweet_delight_chocolate_cake';
+    targetPrefixes = ['sweet_delight_chocolate_cake'];
   } else if (tLow.includes('summer') || tLow.includes('urban style') || cLow === 'fashion') {
-    targetPrefix = 'urban_style_summer_editorial';
+    targetPrefixes = ['urban_style_summer_editorial'];
   } else if (tLow.includes('health') || tLow.includes('wellness') || cLow === 'healthcare') {
-    targetPrefix = 'healthcare_plus_awareness';
+    targetPrefixes = ['healthcare_plus_awareness'];
+  } else if (tLow.includes('diwali') || tLow.includes('festive') || cLow.includes('festive') || cLow === 'ecommerce') {
+    targetPrefixes = ['festive_diwali_shopping_commercial', 'flipkart_premium_sneakers'];
   }
 
-  if (targetPrefix) {
-    const matched = files.find(f => f.startsWith(targetPrefix) && f.endsWith('.jpg'));
-    if (matched) {
-      return {
-        filename: matched,
-        fullPath: path.join(postersDir, matched),
-        localUrl: `/uploads/posters/${matched}`,
-      };
-    }
+  // 1. Check for specific prefix matches across dirs
+  for (const dir of candidateDirs) {
+    try {
+      const files = fs.readdirSync(dir);
+      for (const prefix of targetPrefixes) {
+        const matched = files.find(f => f.startsWith(prefix) && f.endsWith('.jpg'));
+        if (matched) {
+          return {
+            filename: matched,
+            fullPath: path.join(dir, matched),
+            localUrl: `/uploads/posters/${matched}`,
+          };
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Generic commercial fallback if category didn't match a specific prefix
+  for (const dir of candidateDirs) {
+    try {
+      const files = fs.readdirSync(dir).filter(f => f.endsWith('.jpg') && !f.startsWith('poster-'));
+      if (files.length > 0) {
+        const fallback = files.find(f => f.includes('festive')) || files[0];
+        return {
+          filename: fallback,
+          fullPath: path.join(dir, fallback),
+          localUrl: `/uploads/posters/${fallback}`,
+        };
+      }
+    } catch {}
   }
 
   return null;

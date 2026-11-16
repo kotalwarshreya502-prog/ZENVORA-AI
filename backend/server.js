@@ -70,10 +70,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // ─── Static Uploads & Media Storage ──────────────────────────────────────────
 const uploadsDir = path.resolve(__dirname, 'uploads');
 const postersDir = path.join(uploadsDir, 'posters');
+const assetsDir = path.resolve(__dirname, 'assets');
 if (!fs.existsSync(postersDir)) {
   fs.mkdirSync(postersDir, { recursive: true });
 }
 app.use('/uploads', express.static(uploadsDir));
+app.use('/assets', express.static(assetsDir));
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api', apiRouter);
