@@ -42,21 +42,42 @@ export const getHealth = async (req, res) => {
   if (geminiConfigured && isDeep) {
     try {
       const start = Date.now();
-      const listRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`,
-        { method: 'GET' }
-      );
+      // Test gemini-3.1-flash-image or gemini-2.5-flash-image
+      const testImageModel = async (modelName, method, body) => {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:${method}?key=${geminiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            }
+          );
+          const text = await res.text();
+          return { model: modelName, method, status: res.status, snippet: text.slice(0, 300) };
+        } catch (e) {
+          return { model: modelName, method, error: e.message };
+        }
+      };
+
+      const testResults = await Promise.all([
+        testImageModel('gemini-3.1-flash-image', 'generateContent', {
+          contents: [{ parts: [{ text: 'generate an image of a red apple on a clean table' }] }],
+        }),
+        testImageModel('gemini-3.1-flash-image', 'predict', {
+          instances: [{ prompt: 'generate an image of a red apple on a clean table' }],
+        }),
+        testImageModel('gemini-2.5-flash-image', 'generateContent', {
+          contents: [{ parts: [{ text: 'generate an image of a red apple on a clean table' }] }],
+        }),
+        testImageModel('gemini-2.5-flash', 'generateContent', {
+          contents: [{ parts: [{ text: 'hello' }] }],
+        }),
+      ]);
+
       textAiLatencyMs = Date.now() - start;
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const modelNames = (listData.models || []).map(m => m.name.replace('models/', ''));
-        textAiStatus = 'connected';
-        textAiError = `Available models: ${modelNames.join(', ')}`;
-      } else {
-        const errText = await listRes.text();
-        textAiStatus = `api_error_${listRes.status}`;
-        textAiError = errText.slice(0, 300);
-      }
+      textAiStatus = 'tested';
+      textAiError = JSON.stringify(testResults);
     } catch (e) {
       textAiStatus = 'network_unreachable';
       textAiError = e.message;
