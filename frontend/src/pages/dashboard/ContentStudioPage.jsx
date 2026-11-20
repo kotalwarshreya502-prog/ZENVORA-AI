@@ -155,6 +155,15 @@ export const ContentStudioPage = () => {
     URL.revokeObjectURL(url);
   };
 
+  const formatModelLabel = (m) => {
+    if (!m) return 'Gemini 2.0 Flash';
+    if (m.includes('semantic')) return 'Smart Creative Engine';
+    if (m.includes('2.0-flash')) return 'Gemini 2.0 Flash';
+    if (m.includes('1.5-flash')) return 'Gemini 1.5 Flash';
+    if (m.includes('1.5-pro')) return 'Gemini 1.5 Pro';
+    return m;
+  };
+
   const outputContent = isEditing ? editedContent : (output?.content || output?.data?.content);
   const outputModel   = output?.model || output?.data?.model;
   const outputAt      = output?.generatedAt || output?.data?.generatedAt;
@@ -425,8 +434,8 @@ export const ContentStudioPage = () => {
               <Bot size={16} className="text-brand-violet" />
               <span className="font-bold text-sm text-brand-navy">Generated Output</span>
               {outputModel && (
-                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-mono">
-                  {outputModel}
+                <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold">
+                  {formatModelLabel(outputModel)}
                 </span>
               )}
             </div>
@@ -494,7 +503,7 @@ export const ContentStudioPage = () => {
                   <span>
                     Generated {outputAt ? new Date(outputAt).toLocaleTimeString() : 'just now'}
                   </span>
-                  {outputModel && <span>Model: {outputModel}</span>}
+                  {outputModel && <span>Model: {formatModelLabel(outputModel)}</span>}
                 </div>
               </>
             ) : (

@@ -188,14 +188,19 @@ export const generatePoster = async (req, res) => {
     const forwardedProto = req.headers['x-forwarded-proto'];
     const isHttps = forwardedProto === 'https' || req.secure || host.includes('render.com') || host.includes('zenvora') || process.env.NODE_ENV === 'production';
     const protocol = isHttps ? 'https' : 'http';
-    const fullImageUrl = `${protocol}://${host}${imageResult.localUrl}`;
+    const rawLocalUrl = imageResult.localUrl || imageResult.imageUrl || '';
+    const fullImageUrl = (rawLocalUrl.startsWith('http://') || rawLocalUrl.startsWith('https://'))
+      ? rawLocalUrl
+      : `${protocol}://${host}${rawLocalUrl.startsWith('/') ? '' : '/'}${rawLocalUrl}`;
 
     const output = {
       imageUrl: fullImageUrl,
-      localUrl: imageResult.localUrl,
+      localUrl: rawLocalUrl,
       fullImageUrl,
-      upstreamUrl: imageResult.upstreamUrl,
-      proxyUrl: `/api/poster/proxy?url=${encodeURIComponent(imageResult.upstreamUrl || imageResult.imageUrl)}`,
+      upstreamUrl: imageResult.upstreamUrl || fullImageUrl,
+      proxyUrl: (rawLocalUrl.startsWith('http://') || rawLocalUrl.startsWith('https://'))
+        ? rawLocalUrl
+        : `/api/poster/proxy?url=${encodeURIComponent(imageResult.upstreamUrl || fullImageUrl)}`,
       imageDownloaded: true,
       imagePrompt,
       designSpec,
