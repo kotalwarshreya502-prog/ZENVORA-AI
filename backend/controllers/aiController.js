@@ -5,6 +5,7 @@
  */
 
 import GeminiService from '../services/geminiService.js';
+import { generateBlogArticleEndToEnd } from '../services/blogAIService.js';
 import Storage from '../services/storageService.js';
 import { errorResponse, successResponse } from '../utils/responseHandler.js';
 import { generateRequestId } from '../services/aiProviderService.js';
@@ -128,10 +129,25 @@ export const generateBlog = async (req, res) => {
 
     const customApiKey  = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
 
-    const result = await GeminiService.generateBlogArticle({
-      topic, targetKeyword, secondaryKeywords: kwArray,
-      audience, tone, length, brandGuidelines, customApiKey, model,
-    });
+    let result = null;
+    try {
+      result = await generateBlogArticleEndToEnd({
+        topic,
+        targetKeyword,
+        secondaryKeywords: kwArray,
+        audience,
+        tone,
+        length,
+        customApiKey,
+        model,
+      });
+    } catch (llmErr) {
+      console.warn('⚠️ [AI Blog Controller] End-to-end LLM notice:', llmErr.message, '— using resilient domain engine');
+      result = await GeminiService.generateBlogArticle({
+        topic, targetKeyword, secondaryKeywords: kwArray,
+        audience, tone, length, brandGuidelines, customApiKey, model,
+      });
+    }
 
     saveHistory(userId, 'blog-generator', req.body, result, result.model);
     return successResponse(res, 'Blog article generated successfully', result);
