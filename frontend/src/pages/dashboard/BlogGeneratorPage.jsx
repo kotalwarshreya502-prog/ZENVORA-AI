@@ -69,6 +69,7 @@ export const BlogGeneratorPage = () => {
   const handleGenerate = async (e) => {
     e.preventDefault();
     if (!formData.topic.trim()) return;
+    setBlogOutput(null);
     setLoading(true);
     setCopied(false);
     setSaveSuccess(false);
