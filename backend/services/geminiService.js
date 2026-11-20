@@ -105,24 +105,51 @@ export const GeminiService = {
       }
     }
 
-    // ── Route 2: High-Speed Universal Real-Time AI Engine (Zero API Key Required) ──
+    // ── Route 2: High-Speed Universal Real-Time AI Engine (Dual-Route: POST + GET) ──
     try {
-      const fullPrompt = systemInstruction ? `${systemInstruction}\n\nTask:\n${prompt}` : prompt;
-      const cleanPrompt = encodeURIComponent(fullPrompt.substring(0, 2800));
-      const pollinationsUrl = `https://text.pollinations.ai/${cleanPrompt}?model=openai-fast`;
+      const messages = [];
+      if (systemInstruction && typeof systemInstruction === 'string' && systemInstruction.trim()) {
+        messages.push({ role: 'system', content: systemInstruction.trim() });
+      }
+      messages.push({ role: 'user', content: prompt.trim() });
 
-      const pRes = await fetch(pollinationsUrl, {
-        signal: AbortSignal.timeout(18000),
+      // Primary: High-speed POST with OpenAI model
+      const postRes = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        body: JSON.stringify({
+          messages,
+          model: 'openai',
+          seed: Math.floor(Math.random() * 1000000),
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (postRes.ok) {
+        const pText = await postRes.text();
+        if (pText && pText.length > 80 && !pText.includes('Free limit reached') && !pText.includes('rate limit')) {
+          console.log('✅ [GeminiService] Real-time AI generation completed via Universal AI Engine (POST)');
+          return { text: pText.trim(), source: 'universal-ai-engine', success: true };
+        }
+      }
+
+      // Secondary: Clean GET without restrictive model param
+      const cleanPrompt = encodeURIComponent(prompt.substring(0, 900));
+      const getRes = await fetch(`https://text.pollinations.ai/${cleanPrompt}`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
+        signal: AbortSignal.timeout(15000),
       });
 
-      if (pRes.ok) {
-        const pText = await pRes.text();
-        if (pText && pText.length > 80 && !pText.includes('Free limit reached') && !pText.includes('rate limit')) {
-          console.log('✅ [GeminiService] Real-time AI generation completed via Universal AI Engine');
-          return { text: pText.trim(), source: 'universal-ai-engine', success: true };
+      if (getRes.ok) {
+        const gText = await getRes.text();
+        if (gText && gText.length > 80 && !gText.includes('Free limit reached') && !gText.includes('rate limit')) {
+          console.log('✅ [GeminiService] Real-time AI generation completed via Universal AI Engine (GET)');
+          return { text: gText.trim(), source: 'universal-ai-engine', success: true };
         }
       }
     } catch (pErr) {
@@ -656,7 +683,8 @@ Write 5 detailed Q&A pairs. Format each as:
     const isHealthcare = !isCooking && /health|wellness|medical|doctor|clinical|disease|patient|mental health|cortisol|sleep quality|stress management|fitness/i.test(combinedLow);
     const isTech = !isCooking && !isHealthcare && /tech|software|developer|cloud|code|cyber|saas|programming|machine learning|ai tool|devops|\bapi\b|microservice|llm/i.test(combinedLow);
     const isEcommerce = !isCooking && !isHealthcare && !isTech && /ecommerce|e-commerce|retail|store|shopify|amazon|cart|checkout|inventory|dropship|conversion rate|cro/i.test(combinedLow);
-    const isEducation = !isCooking && !isHealthcare && !isTech && !isEcommerce && /education|learning|course|school|student|teach|academy|curriculum|study skill|classroom/i.test(combinedLow);
+    const isMarketing = !isCooking && !isHealthcare && !isTech && !isEcommerce && /market|seo|growth|advertis|brand|content creation|funnel|lead gen|b2b|social media|strategy/i.test(combinedLow);
+    const isEducation = !isCooking && !isHealthcare && !isTech && !isEcommerce && !isMarketing && /education|learning|course|school|student|teach|academy|curriculum|study skill|classroom/i.test(combinedLow);
 
     let blogOutline = [];
     let blogContent = '';
@@ -1173,6 +1201,107 @@ Write 5 detailed Q&A pairs. Format each as:
         { question: 'What is the most effective CRO tactic to reduce cart abandonment?', answer: 'Eliminate surprise costs at checkout and implement one-click digital wallets (Shop Pay, Apple Pay, Google Pay) to streamline mobile payment.' },
         { question: 'How much traffic is required to run statistically valid A/B tests?', answer: 'Aim for at least 15,000 to 20,000 monthly unique visitors and 300+ monthly orders to reach 95% statistical confidence within 2 to 4 weeks.' },
         { question: 'How does page load speed impact e-commerce sales?', answer: 'Google research indicates that 53% of mobile visits are abandoned if a page takes over 3 seconds to load. Optimizing Core Web Vitals to under 2.5s directly lifts conversion rates.' },
+      ];
+    } else if (isMarketing) {
+      // ══════════════════════════════════════════════════════════════════════════
+      // 5. DIGITAL MARKETING & BUSINESS STRATEGY MASTERCLASS
+      // ══════════════════════════════════════════════════════════════════════════
+      blogOutline = [
+        { heading: '1. AI Search & Generative Engine Optimization (GEO)', subpoints: ['Adapting to Google SGE, Perplexity, and ChatGPT Search', 'Optimizing for AI citation authority and answer engines', 'Structured data and knowledge graph grounding'] },
+        { heading: '2. First-Party Data Architecture & Privacy-First Tracking', subpoints: ['Third-party cookie deprecation compliance', 'Server-side tracking (CAPI) on Meta and Google', 'Identity resolution and customer data platforms (CDPs)'] },
+        { heading: '3. Short-Form Video & Social Commerce Integration', subpoints: ['TikTok Shop, Instagram Reels, and YouTube Shorts', 'Native in-app shopping journeys', 'Algorithmic hook retention patterns'] },
+        { heading: '4. Conversational AI Funnels & Real-Time Intent Capture', subpoints: ['Autonomous qualification bots on WhatsApp & web', 'Dynamic personalized lead nurturing', 'Reducing time-to-lead response to under 60 seconds'] },
+        { heading: '5. Programmatic SEO & Scalable Editorial Topic Clusters', subpoints: ['Entity-based topical authority mapping', 'Automated database-driven landing pages', 'Internal linking graph architecture'] },
+        { heading: '6. Micro-Creator Partnerships & Authentic Community Advocacy', subpoints: ['Why nano and micro-influencers out-convert macro celebrities', 'Usage-rights licensing for paid ads (whitelisting)', 'Community-led growth flywheels'] },
+        { heading: '7. Zero-Click Content & Platform-Native Engagement', subpoints: ['Delivering complete value directly in social feeds', 'Optimizing for saves, shares, and comment velocity', 'Building brand recall in privacy-first ecosystems'] },
+        { heading: '8. Account-Based Marketing (ABM) for High-Value Pipelines', subpoints: ['Tier-1 account intent signals and IP deanonymization', 'Hyper-personalized multi-touch campaigns', 'Sales and marketing alignment SLAs'] },
+        { heading: '9. Marketing Mix Modeling (MMM) & Unified Attribution', subpoints: ['Overcoming last-click attribution bias', 'Incrementality testing and geo-holdout experiments', 'Holistic blended ROAS and MER benchmarks'] },
+        { heading: '10. Customer Retention, LTV Expansion & Post-Purchase Loops', subpoints: ['Predictive churn modeling and re-engagement triggers', 'VIP customer tiering and automated loyalty incentives', 'Turning buyers into organic brand advocates'] },
+        { heading: '11. Research, Benchmarks & Industry Citations', subpoints: ['Gartner CMO Spend Survey (2024)', 'HubSpot State of Marketing Report (2024)', 'Google Consumer Insights'] },
+        { heading: '12. Frequently Asked Questions (Marketing FAQs)', subpoints: ['Budget allocation across channels', 'Adapting to AI search', 'Measuring branding vs performance'] },
+      ];
+
+      blogContent = `# ${safeTopic}: The Complete Practical Guide\n\n` +
+        `The modern digital marketing landscape is experiencing its most seismic transformation in two decades. The confluence of generative AI search engines, cookie deprecation, privacy regulations, and shifting buyer attention requires businesses to abandon fragmented, brute-force ad tactics in favor of **disciplined, system-driven marketing architectures**.\n\n` +
+        `Whether you are a CMO, growth director, digital agency leader, or business founder, succeeding with **${safeKw}** requires a strategic framework that drives sustainable customer acquisition and compounds enterprise value.\n\n` +
+        `---\n\n` +
+        `## 1. AI Search & Generative Engine Optimization (GEO)\n\n` +
+        `Traditional keyword-stuffed SEO is obsolete. With Google's AI Overviews, Perplexity, and ChatGPT Search answering queries directly, brands must optimize for **Generative Engine Optimization (GEO)**:\n\n` +
+        `- **Authoritative Information Gain:** Produce original proprietary data, case studies, and primary research that AI models cannot synthesize from generic web scrapers.\n` +
+        `- **Entity Grounding & Schema Markup:** Implement structured JSON-LD schemas (Organization, Article, Author, Product) so LLMs can clearly identify your brand as a verified topical authority.\n` +
+        `- **Direct Answer Formatting:** Structure key insights with clear H2/H3 headers, bulleted definitions, and summary tables that conversational answer engines easily index and cite.\n\n` +
+        `---\n\n` +
+        `## 2. First-Party Data Architecture & Privacy-First Tracking\n\n` +
+        `With browser cookie restrictions and strict global privacy laws (GDPR, CCPA), relying on third-party tracking pixels is an operational liability. High-growth organizations are building owned first-party data moats:\n\n` +
+        `- **Server-Side API Tracking:** Route event tracking through server-side containers (Meta Conversions API, Google Enhanced Conversions) to recover 20% to 35% of lost attribution signals.\n` +
+        `- **Zero-Party Preference Centers:** Capture explicit customer preferences, purchase intent, and dietary or stylistic tastes directly through interactive quizzes and onboarding surveys.\n` +
+        `- **Centralized Customer Data Platforms (CDPs):** Unify fragmented touchpoints into single customer profiles across web, email, SMS, and in-store transactions.\n\n` +
+        `---\n\n` +
+        `## 3. Short-Form Video & Social Commerce Integration\n\n` +
+        `Short-form vertical video (TikTok, Instagram Reels, YouTube Shorts) is no longer just top-of-funnel entertainment — it is an end-to-end shopping engine:\n\n` +
+        `- **The 3-Second Visual Hook Rule:** Capture user curiosity within the first 3 seconds using problem-agitating visuals or counterintuitive statements.\n` +
+        `- **Native In-App Checkouts:** Integrate TikTok Shop and Instagram Shopping to eliminate external browser redirects and capture spontaneous impulse buying.\n` +
+        `- **Raw Authenticity Beats Glossy Production:** User-generated style (UGC) videos shot on smartphones consistently outperform expensive studio commercials in engagement and ROAS.\n\n` +
+        `---\n\n` +
+        `## 4. Conversational AI Funnels & Real-Time Intent Capture\n\n` +
+        `Slow lead response times kill conversion velocity. Research reveals that responding to an inbound lead within 5 minutes yields a 9x higher qualification rate than waiting 30 minutes:\n\n` +
+        `- **Autonomous WhatsApp & Web Assistants:** Deploy AI conversational agents that understand complex customer inquiries, qualify budget and timeline, and instantly schedule calendar meetings 24/7.\n` +
+        `- **Dynamic Personalization:** Adapt website copy and case study recommendations in real time based on the visitor's industry, referral ad, and behavioral intent.\n\n` +
+        `---\n\n` +
+        `## 5. Programmatic SEO & Scalable Editorial Topic Clusters\n\n` +
+        `Instead of publishing one-off articles, build topical authority through structured programmatic content architectures:\n\n` +
+        `- **Pillar & Cluster Architecture:** Establish a comprehensive core pillar page linked bidirectionally to 10 to 15 granular subtopic articles.\n` +
+        `- **Database-Driven Search Pages:** Build programmatic directory or template pages that solve hyper-specific user intent (e.g. location-specific, integration-specific, or use-case-specific queries).\n\n` +
+        `---\n\n` +
+        `## 6. Micro-Creator Partnerships & Authentic Community Advocacy\n\n` +
+        `Audiences have developed immunity to sponsored celebrity endorsements. High-converting brands partner with micro-influencers (5,000 to 50,000 followers) who maintain deep community trust:\n\n` +
+        `- **Whitelisted Paid Media:** Run paid Meta and TikTok ads through the creator's genuine handle (Spark Ads / Partnership Ads) rather than the corporate brand account.\n` +
+        `- **Long-Term Brand Ambassadors:** Replace one-off transactional shoutouts with 6-month ambassador relationships that showcase continuous, authentic product integration.\n\n` +
+        `---\n\n` +
+        `## 7. Zero-Click Content & Platform-Native Engagement\n\n` +
+        `Social media algorithms penalize posts that link users off-platform. Succeed by adopting the **Zero-Click Content Strategy**:\n\n` +
+        `- **Deliver Complete Value in Feed:** Summarize full case studies, frameworks, and actionable checklists directly inside LinkedIn carousels, Twitter/X threads, and Instagram carousels.\n` +
+        `- **Monetize Built-In Trust:** When users receive consistent standalone value on their favorite platforms, they search for your brand directly by name when buying intent arises.\n\n` +
+        `---\n\n` +
+        `## 8. Account-Based Marketing (ABM) for High-Value Pipelines\n\n` +
+        `For B2B organizations, broad-spectrum advertising burns capital on irrelevant traffic. ABM aligns marketing and sales around a defined list of dream accounts:\n\n` +
+        `- **IP-Based Intent Monitoring:** Detect when target enterprise accounts research relevant software categories or visit your pricing page before they fill out a form.\n` +
+        `- **Hyper-Targeted LinkedIn Thought Leader Ads:** Promote executive thought leadership content specifically to buying committee members (procurement, engineering, finance) at designated accounts.\n\n` +
+        `---\n\n` +
+        `## 9. Marketing Mix Modeling (MMM) & Unified Attribution\n\n` +
+        `Last-click attribution misallocates budget by over-crediting branded search and under-crediting brand-building top-of-funnel channels:\n\n` +
+        `- **Marketing Efficiency Ratio (MER):** Track holistic blended performance: $\\text{MER} = \\frac{\\text{Total Revenue}}{\\text{Total Ad Spend Across All Channels}}$.\n` +
+        `- **Incrementality Geo-Testing:** Turn off advertising in specific geographic regions for 3 weeks to measure the true organic baseline and evaluate pure incremental ad lift.\n\n` +
+        `---\n\n` +
+        `## 10. Customer Retention, LTV Expansion & Post-Purchase Loops\n\n` +
+        `Acquiring a new customer costs 5x to 7x more than retaining an existing one. Sustainable margin expansion comes from customer lifetime value (LTV):\n\n` +
+        `- **Predictive Churn Warnings:** Trigger automated concierge outreach when a customer's usage frequency or reorder cadence drops 25% below baseline.\n` +
+        `- **Automated Post-Purchase Education:** Send helpful onboarding guides, video walkthroughs, and unexpected VIP perks that turn customers into enthusiastic brand advocates.\n\n` +
+        `---\n\n` +
+        `## 11. Research, Benchmarks & Industry Citations\n\n` +
+        `| Research Institution | Year | Strategic Finding | Reference Source |\n` +
+        `|---|---|---|---|\n` +
+        `| **Gartner CMO Spend Survey** | 2024 | 64% of marketing leaders report shifting capital into first-party data and AI enablement. | https://gartner.com |\n` +
+        `| **HubSpot State of Marketing** | 2024 | Short-form video and personalized messaging deliver the highest measurable ROI across digital channels. | https://hubspot.com/state-of-marketing |\n` +
+        `| **Google Consumer Insights** | 2024 | Consumers consult an average of 6+ touchpoints before completing major purchase decisions. | https://thinkwithgoogle.com |\n\n` +
+        `---\n\n` +
+        `## 12. Frequently Asked Questions (FAQs)\n\n` +
+        `### Q: How should modern businesses allocate marketing budgets between brand awareness and performance marketing?\n` +
+        `**Answer:** A widely validated framework is the 60/40 rule: allocate approximately 60% of resources toward long-term brand equity, organic search, and community building, and 40% toward direct-response performance advertising. This prevents ad channel fatigue while maintaining predictable near-term pipeline.\n\n` +
+        `### Q: What is the most effective way to prepare for AI-driven search engines?\n` +
+        `**Answer:** Focus on proprietary data, firsthand customer stories, and distinct original perspectives. Generative AI engines synthesize commodity information; they cite and recommend original sources that provide verified data, authoritative author credentials, and comprehensive topical coverage.\n\n` +
+        `### Q: How can B2B companies reduce high customer acquisition costs (CAC)?\n` +
+        `**Answer:** Shift from generic lead-generation forms to Account-Based Marketing (ABM) and content-led demand generation. Warm up buying committees with insightful thought leadership and in-feed zero-click value before asking for demo requests.\n\n` +
+        `### Q: What is the best metric to measure true cross-channel marketing health?\n` +
+        `**Answer:** Blended Marketing Efficiency Ratio (MER = Total Revenue / Total Ad Spend) combined with Customer Acquisition Cost (CAC) and Lifetime Value (LTV). Tracking blended numbers prevents over-reliance on flawed last-click platform reporting.\n\n` +
+        `### Q: How often should businesses revisit and adapt their digital marketing strategy?\n` +
+        `**Answer:** Review weekly leading tactical metrics (CTR, conversion rates, cost per qualified lead), conduct monthly channel reallocation audits, and execute comprehensive strategic reviews quarterly to adapt to algorithmic and market shifts.`;
+
+      blogFaqs = [
+        { question: 'What is the ideal budget split between brand building and performance marketing?', answer: 'The proven 60/40 rule recommends 60% toward long-term brand equity and organic authority, and 40% toward direct-response performance ad campaigns.' },
+        { question: 'How can businesses prepare for AI-driven search engines like Google SGE and Perplexity?', answer: 'Publish original proprietary research, implement structured schema markup, and build strong entity authority so AI answer engines verify and cite your brand.' },
+        { question: 'What is the most reliable metric to track cross-channel marketing ROI?', answer: 'The blended Marketing Efficiency Ratio (MER = Total Revenue / Total Marketing Spend) combined with 90-day LTV to CAC ratios.' },
+        { question: 'Why is first-party data critical for modern advertising?', answer: 'With third-party cookie phaseouts and strict privacy laws, server-side first-party data tracking restores 20% to 35% of lost attribution and lowers ad costs.' },
       ];
     } else {
       // ══════════════════════════════════════════════════════════════════════════
