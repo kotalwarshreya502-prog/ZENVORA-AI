@@ -46,12 +46,12 @@ export const DashboardSidebar = ({ mobileOpen, setMobileOpen }) => {
     {
       title: 'AI CONTENT STUDIO',
       items: [
-        { name: 'Content Studio', path: '/dashboard/content-studio', icon: <Bot size={18} />, badge: 'Gemini' },
-        { name: 'AI Blog Generator', path: '/dashboard/blog-generator', icon: <FileText size={18} /> },
-        { name: 'Social Post Creator', path: '/dashboard/social-generator', icon: <Share2 size={18} /> },
-        { name: 'Caption Generator', path: '/dashboard/caption-generator', icon: <MessageSquare size={18} /> },
-        { name: 'Hashtag Clusters', path: '/dashboard/hashtag-generator', icon: <Hash size={18} /> },
-        { name: 'Image Creator', path: '/dashboard/image-generation', icon: <ImageIcon size={18} /> },
+        { name: 'Content Studio', path: '/dashboard/content-studio', icon: <Bot size={18} />, badge: 'Gemini 2.0' },
+        { name: 'AI Blog Generator', path: '/dashboard/blog-generator', icon: <FileText size={18} />, badge: 'Gemini Pro' },
+        { name: 'Social Post Creator', path: '/dashboard/social-generator', icon: <Share2 size={18} />, badge: 'Gemini Flash' },
+        { name: 'Caption Generator', path: '/dashboard/caption-generator', icon: <MessageSquare size={18} />, badge: 'Smart AI' },
+        { name: 'Hashtag Clusters', path: '/dashboard/hashtag-generator', icon: <Hash size={18} />, badge: 'AI Clusters' },
+        { name: 'Image Creator', path: '/dashboard/image-generation', icon: <ImageIcon size={18} />, badge: 'FLUX 1.0' },
       ],
     },
     {

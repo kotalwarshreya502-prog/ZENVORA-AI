@@ -3,6 +3,7 @@ import {
   Hash, Sparkles, Copy, Check, RefreshCw, X,
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { enhancePrompt, TEXT_MODELS } from '../../utils/promptEnhancer';
 
 const ClusterCard = ({ label, tags, tier, color, description, copiedSection, handleCopyCluster, selectedTags, toggleTag }) => (
   <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
@@ -50,6 +51,8 @@ export const HashtagGeneratorPage = () => {
   const [brandName,     setBrandName]     = useState('');
   const [industry,      setIndustry]      = useState('');
   const [platform,      setPlatform]      = useState('instagram');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
+  const [isEnhancing,   setIsEnhancing]   = useState(false);
   const [loading,       setLoading]       = useState(false);
   const [copiedSection, setCopiedSection] = useState(null);
   const [selectedTags,  setSelectedTags]  = useState([]);
@@ -63,6 +66,13 @@ export const HashtagGeneratorPage = () => {
   });
 
   const hasResults = clusters.broad.length > 0 || clusters.niche.length > 0;
+
+  const handleEnhancePrompt = () => {
+    setIsEnhancing(true);
+    const enhanced = enhancePrompt(keyword, 'hashtag', brandName);
+    setKeyword(enhanced);
+    setTimeout(() => setIsEnhancing(false), 300);
+  };
 
   const handleGenerate = async (e) => {
     e?.preventDefault();
@@ -82,6 +92,7 @@ export const HashtagGeneratorPage = () => {
         industry: industry.trim(),
         brandName: brandName.trim(),
         count:    25,
+        model:    selectedModel,
       });
 
       // response = response.data from axios interceptor
@@ -147,15 +158,34 @@ export const HashtagGeneratorPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Hash className="text-brand-violet" size={24} />
-          Hashtag Cluster Generator
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Generate tiered hashtag clusters for any brand, industry, and topic — optimized per platform.
-        </p>
+      {/* Header with Model Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Hash className="text-brand-violet" size={24} />
+            Hashtag Cluster Generator
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Generate tiered hashtag clusters for any brand, industry, and topic — optimized per platform.
+          </p>
+        </div>
+
+        {/* AI Model Selector */}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Model:</span>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="font-medium text-xs text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
+          >
+            {TEXT_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} ({m.badge})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Error */}
@@ -170,9 +200,21 @@ export const HashtagGeneratorPage = () => {
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
         <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-12 gap-4">
           <div className="md:col-span-4">
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Topic / Keyword <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Topic / Keyword <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleEnhancePrompt}
+                disabled={isEnhancing}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-violet hover:text-brand-violet/80 bg-brand-violet/10 hover:bg-brand-violet/15 px-2 py-0.5 rounded-md transition-all cursor-pointer"
+                title="Automatically expand your niche into high-intent keywords"
+              >
+                <Sparkles size={12} className={isEnhancing ? 'animate-spin' : ''} />
+                <span>{isEnhancing ? '...' : '✨ Perfect'}</span>
+              </button>
+            </div>
             <input
               type="text"
               value={keyword}

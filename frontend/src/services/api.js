@@ -43,7 +43,7 @@ export const resolveImageUrl = (url) => {
 
 const apiClient = axios.create({
   baseURL,
-  timeout: 60000, // 60s — AI generation can be slow
+  timeout: 120000, // 120s — High-precision AI visual and text generation
   headers: {
     'Content-Type': 'application/json',
   },

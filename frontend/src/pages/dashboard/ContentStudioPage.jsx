@@ -7,6 +7,7 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { api } from '../../services/api';
+import { enhancePrompt, TEXT_MODELS, PROMPT_PRESETS } from '../../utils/promptEnhancer';
 
 const PLATFORMS     = ['Instagram', 'Facebook', 'LinkedIn', 'X (Twitter)', 'YouTube', 'Blog / Website'];
 const CONTENT_TYPES = ['Social Post', 'Ad Copy', 'Caption', 'Headline', 'Blog Intro', 'YouTube Description', 'Newsletter Snippet', 'Call to Action'];
@@ -58,6 +59,8 @@ export const ContentStudioPage = () => {
   const [keywords, setKeywords]             = useState('');
   const [objective, setObjective]           = useState('');
   const [length, setLength]                 = useState('Medium (100-250 words)');
+  const [selectedModel, setSelectedModel]   = useState('gemini-2.0-flash');
+  const [isEnhancing, setIsEnhancing]       = useState(false);
 
   const [loading, setLoading]               = useState(false);
   const [output, setOutput]                 = useState(null);       // null = no generation yet
@@ -70,6 +73,13 @@ export const ContentStudioPage = () => {
   const resolvedIndustry = industry === '__custom__'
     ? customIndustry.trim()
     : industry;
+
+  const handleEnhancePrompt = () => {
+    setIsEnhancing(true);
+    const enhanced = enhancePrompt(topic, 'social', brandName);
+    setTopic(enhanced);
+    setTimeout(() => setIsEnhancing(false), 300);
+  };
 
   const handleGenerate = async (e) => {
     e?.preventDefault();
@@ -94,6 +104,7 @@ export const ContentStudioPage = () => {
         keywords: keywords.trim(),
         objective: objective.trim(),
         length,
+        model: selectedModel,
       });
       setOutput(res);
       setEditedContent(res.content || res?.data?.content || '');
@@ -150,16 +161,35 @@ export const ContentStudioPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <Badge variant="violet" size="sm">AI Content Studio</Badge>
-          <span className="text-xs text-slate-400">• Powered by Google Gemini</span>
+      {/* Header with Model Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Badge variant="violet" size="sm">AI Content Studio</Badge>
+            <span className="text-xs text-slate-400">• Multi-Model AI Engine</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-brand-navy tracking-tight mt-1">Content Creator</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Generate fresh, brand-aligned content for <strong>any brand, any industry, any platform</strong>.
+          </p>
         </div>
-        <h1 className="text-2xl font-extrabold text-brand-navy tracking-tight mt-1">Content Creator</h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Generate fresh, brand-aligned content for <strong>any brand, any industry, any platform</strong>. Every generation starts clean.
-        </p>
+
+        {/* AI Model Selector */}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">AI Model:</span>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="font-medium text-xs text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
+          >
+            {TEXT_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} ({m.badge})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error && (
@@ -211,11 +241,41 @@ export const ContentStudioPage = () => {
               )}
             </div>
 
-            {/* Campaign Topic / Subject — Textarea for continuous sentences and multi-paragraph typing */}
+            {/* Campaign Topic / Subject with Prompt Enhancer */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">
-                Campaign Topic / Subject <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700">
+                  Campaign Topic / Subject <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleEnhancePrompt}
+                  disabled={isEnhancing}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-violet hover:text-brand-violet/80 bg-brand-violet/10 hover:bg-brand-violet/15 px-2 py-0.5 rounded-md transition-all cursor-pointer"
+                  title="Automatically enrich your prompt into a high-converting, professional marketing brief"
+                >
+                  <Sparkles size={12} className={isEnhancing ? 'animate-spin' : ''} />
+                  <span>{isEnhancing ? 'Enhancing...' : '✨ Perfect Prompt'}</span>
+                </button>
+              </div>
+
+              {/* Quick Inspiration Chips */}
+              <div className="flex flex-wrap gap-1.5 mb-1.5 pt-0.5">
+                {PROMPT_PRESETS.social.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      setTopic(preset.topic);
+                      if (preset.brand && !brandName) setBrandName(preset.brand);
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-brand-violet/10 hover:text-brand-violet text-slate-600 transition-colors border border-slate-200/60 cursor-pointer"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
               <textarea
                 rows={3}
                 required

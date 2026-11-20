@@ -113,6 +113,7 @@ export const generatePoster = async (req, res) => {
       customOffer = '',
       customCta = '',
       seed: customSeed,
+      model = 'flux',
     } = req.body;
 
     if (!description || description.trim().length < 3) {
@@ -177,6 +178,7 @@ export const generatePoster = async (req, res) => {
       height: dimensions.height,
       seed: customSeed,
       customApiKey: apiKey,
+      model: model || 'flux',
     });
 
     // ── 7. Build complete design specification ────────────────────────────────

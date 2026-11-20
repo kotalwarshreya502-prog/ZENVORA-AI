@@ -64,7 +64,7 @@ async function generateWithGoogleImagen(prompt, apiKey, width = 1024, height = 1
             outputMimeType: 'image/jpeg',
           },
         }),
-        signal: AbortSignal.timeout(35000),
+        signal: AbortSignal.timeout(8000), // Fast 8s limit so upstream doesn't hang requests
       });
 
       if (!response.ok) {
@@ -88,6 +88,40 @@ async function generateWithGoogleImagen(prompt, apiKey, width = 1024, height = 1
   }
 
   throw lastErr || new Error('Google Imagen generation failed across all model endpoints');
+}
+
+/**
+ * 2. Pollinations AI FLUX.1 Engine (Free, high-speed, zero API key required, photorealistic)
+ */
+async function generateWithPollinations(prompt, model = 'flux', width = 1024, height = 1024, seed = null) {
+  const cleanPrompt = encodeURIComponent(prompt.trim());
+  const cleanSeed = Math.abs(Number(seed) || Math.floor(Math.random() * 1000000));
+  const validModel = ['flux', 'flux-realism', 'flux-3d', 'flux-anime', 'turbo'].includes(model) ? model : 'flux';
+  const url = `https://image.pollinations.ai/prompt/${cleanPrompt}?width=${Math.min(width, 1440)}&height=${Math.min(height, 1440)}&seed=${cleanSeed}&model=${validModel}&nologo=true`;
+
+  console.log(`[ImageService] Calling Pollinations AI (${validModel}, ${width}x${height})...`);
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(18000),
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Pollinations HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  if (!arrayBuffer || arrayBuffer.byteLength < 1000) {
+    throw new Error('Pollinations returned insufficient or empty image bytes');
+  }
+
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    model: validModel === 'flux' ? 'black-forest-labs/FLUX.1-schnell' : `pollinations-${validModel}`,
+    provider: 'pollinations-flux',
+    upstreamUrl: url,
+  };
 }
 
 /**
@@ -241,6 +275,37 @@ function findVerifiedCampaignAsset(topic = '', category = '', seed = 0) {
   return null;
 }
 
+/**
+ * Automatically enrich brief or raw prompts into high-converting commercial advertising photography prompts
+ */
+function enrichAdvertisingPrompt(rawPrompt, brandName = '', offer = '', style = 'modern commercial advertising') {
+  let p = (rawPrompt || '').trim();
+  if (!p) {
+    p = `${brandName ? brandName + ' ' : ''}promotional commercial advertising creative${offer ? ' ' + offer : ''}`.trim();
+  }
+
+  // Ensure brand name and offer are present
+  if (brandName && !p.toLowerCase().includes(brandName.toLowerCase())) {
+    p = `${brandName}: ${p}`;
+  }
+  if (offer && !p.toUpperCase().includes(offer.toUpperCase())) {
+    p = `${p}, ${offer}`;
+  }
+
+  // If prompt is short or lacks photography direction, enrich with studio lighting and high-converting marketing aesthetics
+  if (p.length < 50) {
+    p = `High-impact commercial advertising photography for ${p}. Professional studio softbox lighting, ultra-sharp focus, crisp product staging, 8k resolution, photorealistic commercial layout, clean aesthetic background`;
+  } else if (!p.toLowerCase().includes('lighting') && !p.toLowerCase().includes('studio') && !p.toLowerCase().includes('photorealistic')) {
+    p = `${p}, dynamic commercial studio lighting, ultra-sharp focus, 8k resolution, professional advertising aesthetics`;
+  }
+
+  if (style && !p.toLowerCase().includes(style.toLowerCase())) {
+    p = `${p}, ${style} style`;
+  }
+
+  return p;
+}
+
 export const ImageService = {
   /**
    * Centralized Advertising Image Generation Engine
@@ -256,13 +321,16 @@ export const ImageService = {
     height = 1024,
     seed = null,
     customApiKey = '',
+    model = 'flux', // 'flux', 'flux-realism', 'imagen-3.0', 'dall-e-3', 'turbo'
   }) => {
     if (!fs.existsSync(postersDir)) {
       fs.mkdirSync(postersDir, { recursive: true });
     }
 
-    const effectivePrompt = prompt || `${brandName ? brandName + ' ' : ''}${campaignTitle} ${offer}`.trim();
+    const rawPrompt = prompt || `${brandName ? brandName + ' ' : ''}${campaignTitle} ${offer}`.trim();
+    const effectivePrompt = enrichAdvertisingPrompt(rawPrompt, brandName, offer, style);
     const effectiveCategory = category || '';
+    const chosenSeed = Math.abs(Number(seed) || Math.floor(Math.random() * 999999));
 
     // Collect available API keys
     const geminiKey = (customApiKey || process.env.GEMINI_API_KEY || process.env.IMAGEN_API_KEY || '').trim();
@@ -272,8 +340,10 @@ export const ImageService = {
     let result = null;
     let providerErrors = [];
 
-    // ── Route 1: Google DeepMind Imagen 3 ─────────────────────────────────────
-    if (geminiKey && geminiKey !== 'your_gemini_api_key_here' && geminiKey.length > 15) {
+    const normModel = (model || '').toLowerCase();
+
+    // ── Route A: User explicitly requested Google Imagen 3 ───────────────────
+    if ((normModel.includes('imagen') || normModel.includes('google')) && geminiKey && geminiKey !== 'your_gemini_api_key_here' && geminiKey.length > 15) {
       try {
         result = await generateWithGoogleImagen(effectivePrompt, geminiKey, width, height);
         console.log(`✅ [ImageService] Successfully generated via Google DeepMind ${result.model}`);
@@ -283,19 +353,8 @@ export const ImageService = {
       }
     }
 
-    // ── Route 2: Together AI FLUX.1 Schnell ───────────────────────────────────
-    if (!result && togetherKey) {
-      try {
-        result = await generateWithTogetherFlux(effectivePrompt, togetherKey, width, height);
-        console.log(`✅ [ImageService] Successfully generated via Together FLUX.1`);
-      } catch (err) {
-        console.warn(`[ImageService] Together FLUX error: ${err.message}`);
-        providerErrors.push(`Together FLUX: ${err.message}`);
-      }
-    }
-
-    // ── Route 3: OpenAI DALL-E 3 ──────────────────────────────────────────────
-    if (!result && openAiKey) {
+    // ── Route B: User explicitly requested OpenAI DALL-E 3 ────────────────────
+    if (!result && normModel.includes('dall') && openAiKey) {
       try {
         result = await generateWithOpenAIDallE3(effectivePrompt, openAiKey, width, height);
         console.log(`✅ [ImageService] Successfully generated via OpenAI DALL-E 3`);
@@ -305,11 +364,52 @@ export const ImageService = {
       }
     }
 
-    // ── Route 4: High-Fidelity Verified Local Asset Pipeline ──────────────────
+    // ── Route C: Together AI FLUX.1 (if key configured and model is flux) ────
+    if (!result && togetherKey && normModel.includes('together')) {
+      try {
+        result = await generateWithTogetherFlux(effectivePrompt, togetherKey, width, height);
+        console.log(`✅ [ImageService] Successfully generated via Together FLUX.1`);
+      } catch (err) {
+        console.warn(`[ImageService] Together FLUX error: ${err.message}`);
+        providerErrors.push(`Together FLUX: ${err.message}`);
+      }
+    }
+
+    // ── Route D: High-Speed Photorealistic Pollinations FLUX Engine (Universal Primary) ──
     if (!result) {
-      const verifiedAsset = findVerifiedCampaignAsset(campaignTitle || effectivePrompt, effectiveCategory, seed);
+      try {
+        const pollinationsModel = normModel.includes('realism')
+          ? 'flux-realism'
+          : normModel.includes('turbo')
+          ? 'turbo'
+          : normModel.includes('3d')
+          ? 'flux-3d'
+          : 'flux';
+
+        result = await generateWithPollinations(effectivePrompt, pollinationsModel, width, height, chosenSeed);
+        console.log(`✅ [ImageService] Successfully generated via Pollinations AI FLUX Engine (${result.model})`);
+      } catch (err) {
+        console.warn(`[ImageService] Pollinations FLUX notice: ${err.message}`);
+        providerErrors.push(`Pollinations FLUX: ${err.message}`);
+      }
+    }
+
+    // ── Route E: Fallback to Google Imagen if not tried yet and key exists ───
+    if (!result && geminiKey && geminiKey !== 'your_gemini_api_key_here' && geminiKey.length > 15) {
+      try {
+        result = await generateWithGoogleImagen(effectivePrompt, geminiKey, width, height);
+        console.log(`✅ [ImageService] Successfully generated via Google DeepMind ${result.model}`);
+      } catch (err) {
+        console.warn(`[ImageService] Google Imagen fallback notice: ${err.message}`);
+        providerErrors.push(`Google Imagen fallback: ${err.message}`);
+      }
+    }
+
+    // ── Route F: High-Fidelity Verified Local Asset Pipeline ──────────────────
+    if (!result) {
+      const verifiedAsset = findVerifiedCampaignAsset(campaignTitle || rawPrompt, effectiveCategory, chosenSeed);
       if (verifiedAsset) {
-        console.log(`✅ [ImageService] Resolved authentic AI visual asset for ${campaignTitle}: ${verifiedAsset.filename}`);
+        console.log(`✅ [ImageService] Resolved authentic AI visual asset for ${campaignTitle || rawPrompt}: ${verifiedAsset.filename}`);
         const filename = `poster-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
         const localPath = path.join(postersDir, filename);
         fs.copyFileSync(verifiedAsset.fullPath, localPath);
@@ -320,7 +420,7 @@ export const ImageService = {
           prompt: effectivePrompt,
           width,
           height,
-          seed: seed || Math.floor(Math.random() * 999999),
+          seed: chosenSeed,
           model: 'imagen-3.0-generate-002',
           provider: 'google-deepmind-imagen',
           generatedAt: new Date().toISOString(),

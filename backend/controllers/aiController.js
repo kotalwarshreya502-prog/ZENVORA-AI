@@ -77,6 +77,7 @@ export const generateMarketingContent = async (req, res) => {
       length      = 'Medium',
       brandName   = '',
       objective   = '',
+      model       = '',
     } = req.body;
 
     if (!topic || topic.trim() === '') {
@@ -90,7 +91,7 @@ export const generateMarketingContent = async (req, res) => {
     const result = await GeminiService.generateMarketingContent({
       type, platform, industry, targetAudience, topic, offer,
       tone, language, keywords, length, brandName, objective, brandGuidelines,
-      customApiKey,
+      customApiKey, model,
     });
 
     saveHistory(userId, 'marketing-content', req.body, result, result.model);
@@ -112,6 +113,7 @@ export const generateBlog = async (req, res) => {
       audience = 'General readers',
       tone     = 'Authoritative and insightful',
       length   = 'Comprehensive (1500+ words)',
+      model    = '',
     } = req.body;
 
     if (!topic || topic.trim() === '') {
@@ -128,7 +130,7 @@ export const generateBlog = async (req, res) => {
 
     const result = await GeminiService.generateBlogArticle({
       topic, targetKeyword, secondaryKeywords: kwArray,
-      audience, tone, length, brandGuidelines, customApiKey,
+      audience, tone, length, brandGuidelines, customApiKey, model,
     });
 
     saveHistory(userId, 'blog-generator', req.body, result, result.model);
@@ -154,6 +156,7 @@ export const generateCaptions = async (req, res) => {
       industry      = '',
       targetAudience = '',
       keywords      = '',
+      model         = '',
     } = req.body;
 
     if (!topic) return errorResponse(res, 'Topic is required', 400);
@@ -162,7 +165,7 @@ export const generateCaptions = async (req, res) => {
 
     const result = await GeminiService.generateSocialCaptions({
       platform, topic, tone, count,
-      brandName, industry, targetAudience, keywords, customApiKey,
+      brandName, industry, targetAudience, keywords, customApiKey, model,
     });
 
     const userId = req.user?.id || 'demo_user';
@@ -185,6 +188,7 @@ export const generateHashtags = async (req, res) => {
       industry  = '',
       brandName = '',
       count     = 25,
+      model     = '',
     } = req.body;
 
     const topic = niche || keyword;
@@ -193,7 +197,7 @@ export const generateHashtags = async (req, res) => {
     const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
 
     const result = await GeminiService.generateHashtags({
-      niche: topic, platform, industry, brandName, count, customApiKey,
+      niche: topic, platform, industry, brandName, count, customApiKey, model,
     });
 
     const userId = req.user?.id || 'demo_user';

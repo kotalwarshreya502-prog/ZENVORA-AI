@@ -2,14 +2,27 @@ import { errorResponse, successResponse } from '../utils/responseHandler.js';
 
 export const generateImage = async (req, res) => {
   try {
-    const { campaignTitle = '', productService = '' } = req.body;
+    const {
+      prompt = '',
+      description = '',
+      campaignTitle = '',
+      productService = '',
+      topic = '',
+      model = 'flux',
+    } = req.body;
 
-    if (!campaignTitle && !productService) {
-      return errorResponse(res, 'Please provide a campaign title or product/service description', 400);
+    const effectiveText = prompt || description || campaignTitle || productService || topic;
+
+    if (!effectiveText || effectiveText.trim().length === 0) {
+      return errorResponse(res, 'Please provide an image prompt or campaign description', 400);
     }
 
     const { default: ImageService } = await import('../services/imageService.js');
-    const result = await ImageService.generateImage(req.body);
+    const result = await ImageService.generateImage({
+      ...req.body,
+      prompt: effectiveText.trim(),
+      model: model || 'flux',
+    });
 
     return successResponse(res, 'Image generated successfully', result);
   } catch (err) {

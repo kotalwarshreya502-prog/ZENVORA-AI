@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { enhancePrompt, TEXT_MODELS } from '../../utils/promptEnhancer';
 
 const PLATFORMS = ['Instagram', 'LinkedIn', 'TikTok', 'YouTube', 'Facebook', 'X (Twitter)'];
 const TONES     = [
@@ -29,10 +30,19 @@ export const CaptionGeneratorPage = () => {
   const [tone,           setTone]           = useState('Conversational & Engaging');
   const [length,         setLength]         = useState('medium');
   const [platform,       setPlatform]       = useState('Instagram');
+  const [selectedModel,  setSelectedModel]  = useState('gemini-2.0-flash');
+  const [isEnhancing,    setIsEnhancing]    = useState(false);
   const [loading,        setLoading]        = useState(false);
   const [copiedIndex,    setCopiedIndex]    = useState(null);
   const [error,          setError]          = useState(null);
   const [captions,       setCaptions]       = useState([]);
+
+  const handleEnhancePrompt = () => {
+    setIsEnhancing(true);
+    const enhanced = enhancePrompt(topic, 'caption', brandName);
+    setTopic(enhanced);
+    setTimeout(() => setIsEnhancing(false), 300);
+  };
 
   const handleGenerate = async (e) => {
     e?.preventDefault();
@@ -53,6 +63,7 @@ export const CaptionGeneratorPage = () => {
         industry:       industry.trim(),
         targetAudience: targetAudience.trim(),
         keywords:       keywords.trim(),
+        model:          selectedModel,
       });
 
       // response is already response.data thanks to axios interceptor
@@ -101,15 +112,34 @@ export const CaptionGeneratorPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <MessageSquare className="text-brand-violet" size={24} />
-          Multi-Angle Caption Studio
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Generate 5 distinct caption styles for any brand, topic, and platform.
-        </p>
+      {/* Header with Model Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <MessageSquare className="text-brand-violet" size={24} />
+            Multi-Angle Caption Studio
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Generate 5 distinct caption styles for any brand, topic, and platform.
+          </p>
+        </div>
+
+        {/* AI Model Selector */}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Model:</span>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="font-medium text-xs text-slate-800 bg-transparent border-none focus:outline-none cursor-pointer"
+          >
+            {TEXT_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} ({m.badge})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Error */}
@@ -125,11 +155,23 @@ export const CaptionGeneratorPage = () => {
         <div className="lg:col-span-4 bg-white p-6 rounded-xl border border-slate-200 shadow-xs h-fit space-y-4">
           <form onSubmit={handleGenerate} className="space-y-4">
 
-            {/* Topic */}
+            {/* Topic with Prompt Enhancer */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Post Topic or Visual Description <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Post Topic or Visual Description <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleEnhancePrompt}
+                  disabled={isEnhancing}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-violet hover:text-brand-violet/80 bg-brand-violet/10 hover:bg-brand-violet/15 px-2.5 py-0.5 rounded-md transition-all cursor-pointer"
+                  title="Automatically enrich your prompt into a high-engagement caption concept"
+                >
+                  <Sparkles size={12} className={isEnhancing ? 'animate-spin' : ''} />
+                  <span>{isEnhancing ? 'Enhancing...' : '✨ Perfect Prompt'}</span>
+                </button>
+              </div>
               <textarea
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}

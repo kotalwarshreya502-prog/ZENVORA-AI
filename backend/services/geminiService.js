@@ -23,19 +23,33 @@ export const GeminiService = {
    * @param {string} prompt - The user prompt
    * @param {string} systemInstruction - System instruction string (must be a string)
    */
-  callGemini: async (prompt, systemInstruction = '', customApiKey = '') => {
+  callGemini: async (prompt, systemInstruction = '', customApiKey = '', requestedModel = '') => {
     const apiKey = (customApiKey && customApiKey.trim() !== '' && customApiKey !== 'your_gemini_api_key_here')
       ? customApiKey.trim()
       : process.env.GEMINI_API_KEY;
 
     if (apiKey && apiKey.trim() !== '' && apiKey !== 'your_gemini_api_key_here') {
-      const modelsToTry = [
-        'gemini-3.8-flash',
-        'gemini-3.5-flash',
-        'gemini-flash-latest',
-        'gemini-2.5-flash',
+      const defaultModels = [
+        'gemini-2.0-flash',
         'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'gemini-2.0-flash-lite',
       ];
+
+      // Prioritize requested model if specified
+      const cleanRequested = (requestedModel || '').toLowerCase().trim();
+      let modelsToTry = [...defaultModels];
+      if (cleanRequested) {
+        if (cleanRequested.includes('pro')) {
+          modelsToTry = ['gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        } else if (cleanRequested.includes('2.0')) {
+          modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+        } else if (cleanRequested.includes('1.5-flash')) {
+          modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+        } else if (defaultModels.includes(cleanRequested)) {
+          modelsToTry = [cleanRequested, ...defaultModels.filter(m => m !== cleanRequested)];
+        }
+      }
 
       for (const modelName of modelsToTry) {
         try {
@@ -122,6 +136,7 @@ export const GeminiService = {
     length         = 'Medium',
     brandGuidelines = null,
     customApiKey   = '',
+    model          = '',
   }) => {
     // ── 1. Build brand context from stored guidelines (if any) ───────────────
     const storedVoice        = brandGuidelines?.brandVoice || '';
@@ -375,6 +390,7 @@ REGENERATE IMMEDIATELY obeying these strict mandates:
     length   = 'Comprehensive (1500+ words)',
     brandGuidelines = null,
     customApiKey = '',
+    model = '',
   }) => {
     const brandVoice = brandGuidelines?.brandVoice || 'Authoritative, analytical, and actionable';
 
@@ -398,7 +414,7 @@ Output valid JSON containing:
 - readingTime (minutes number)
 - seoScore (number between 85-98)`;
 
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
+    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey, model);
     if (liveResult) {
       try {
         const cleaned = liveResult.text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -457,6 +473,7 @@ Output valid JSON containing:
     targetAudience = '',
     keywords       = '',
     customApiKey   = '',
+    model          = '',
   }) => {
     const brandLine    = brandName    ? `Brand: ${brandName}` : '';
     const industryLine = industry     ? `Industry: ${industry}` : '';
@@ -497,7 +514,7 @@ Format each caption as:
 [hashtags]
 ---`;
 
-    const live = await GeminiService.callGemini(prompt, systemPrompt, customApiKey);
+    const live = await GeminiService.callGemini(prompt, systemPrompt, customApiKey, model);
 
     if (live) {
       // Parse into structured array
@@ -565,6 +582,7 @@ Format each caption as:
     brandName = '',
     count     = 25,
     customApiKey = '',
+    model     = '',
   }) => {
     const systemPrompt = `You are a hashtag strategy expert. Generate relevant, effective hashtags for social media.
 RULES: Every hashtag must be relevant to the specific niche/topic provided. Each hashtag is a separate #token.
@@ -595,7 +613,7 @@ Rules:
 - Each is a SEPARATE #token (no spaces inside a hashtag)
 - No duplicate hashtags across tiers`;
 
-    const live = await GeminiService.callGemini(prompt, systemPrompt, customApiKey);
+    const live = await GeminiService.callGemini(prompt, systemPrompt, customApiKey, model);
 
     if (live) {
       // Try to parse into clusters
