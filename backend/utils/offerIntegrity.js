@@ -18,11 +18,11 @@ export function extractStrictOffer(text = '', explicitOffer = '') {
   // Check explicit offer first, but only if it actually represents an offer
   if (explicitOffer && typeof explicitOffer === 'string') {
     const trimmed = explicitOffer.trim();
-    if (/\d{1,3}%|bogo|buy\s+\d+|[$€£₹]\s*\d+|admission\s+open|flat\s+\d+|discount|off\b/i.test(trimmed)) {
+    if (/\d{1,3}\s*%|bogo|buy\s+\d+|[$€£₹]\s*\d+|admission\s+open|flat\s+\d+|discount|off\b/i.test(trimmed)) {
       // Normalize percentage
-      const pMatch = trimmed.match(/(?:flat\s+)?(\d{1,3}%\s*(?:off|discount)?)/i);
+      const pMatch = trimmed.match(/(?:flat\s+)?(\d{1,3}\s*%\s*(?:off|discount)?|\d{1,3}\s*percent\s*(?:off|discount)?)/i);
       if (pMatch) {
-        let p = pMatch[1].trim().toUpperCase();
+        let p = pMatch[1].replace(/\s+%/g, '%').trim().toUpperCase();
         if (!p.includes('OFF') && !p.includes('DISCOUNT')) p = `${p} OFF`;
         return p;
       }
@@ -34,10 +34,10 @@ export function extractStrictOffer(text = '', explicitOffer = '') {
 
   const clean = text.trim();
 
-  // 1. Percentage discounts: "50% off", "50% discount", "flat 50% off", "50%"
-  const percentMatch = clean.match(/(?:flat\s+)?(\d{1,3}%\s*(?:off|discount)?)/i);
+  // 1. Percentage discounts: "50% off", "50 % off", "50% discount", "flat 50% off", "50%"
+  const percentMatch = clean.match(/(?:flat\s+)?(\d{1,3}\s*%\s*(?:off|discount)?|\d{1,3}\s*percent\s*(?:off|discount)?)/i);
   if (percentMatch) {
-    let p = percentMatch[1].trim().toUpperCase();
+    let p = percentMatch[1].replace(/\s+%/g, '%').trim().toUpperCase();
     if (!p.includes('OFF') && !p.includes('DISCOUNT')) {
       p = `${p} OFF`;
     }
@@ -102,11 +102,13 @@ export function sanitizeGeneratedText(content, strictOffer = '', userInput = '')
 
   let cleaned = content;
 
-  // 1. Remove invented bank discount tropes:
-  // e.g. "10% instant discount on bank cards", "Additional 10% off with SBI/HDFC", etc.
+  // 1. Remove invented bank discount tropes without destroying the whole sentence:
+  // e.g. "10% instant discount on bank cards", "+ 10% instant bank discount on SBI cards. No-cost EMI available!"
   if (!/bank|card|sbi|hdfc|icici|axis/i.test(userInput)) {
-    cleaned = cleaned.replace(/(?:\+?\s*(?:extra\s*)?(?:additional\s*)?\d{1,2}%\s*(?:instant\s*)?(?:bank|card)\s*discount(?:\s*on\s*[^.\n]+)?)/gi, '');
-    cleaned = cleaned.replace(/.*(?:instant\s*bank\s*discount|no-cost\s*emi|bank\s*offers? available).*/gi, '');
+    cleaned = cleaned.replace(/(?:\s*\+?\s*)?(?:extra\s*)?(?:additional\s*)?\d{1,2}%\s*(?:instant\s*)?(?:bank|card)\s*discount(?:\s*on\s*[^.!\n]+)?/gi, '');
+    cleaned = cleaned.replace(/(?:\s*\+?\s*)?no-cost\s*emi(?:\s*available)?/gi, '');
+    cleaned = cleaned.replace(/(?:\s*\+?\s*)?bank\s*offers?\s*available/gi, '');
+    cleaned = cleaned.replace(/(?:\s*\+?\s*)?instant\s*bank\s*discount(?:\s*on\s*[^.!\n]+)?/gi, '');
   }
 
   // 2. If a strict offer exists (e.g. "50% OFF"):

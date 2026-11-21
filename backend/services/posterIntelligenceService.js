@@ -11,12 +11,16 @@ import { extractStrictOffer, buildStrictOfferRules, sanitizeGeneratedText } from
 
 // ── Category detection keywords ─────────────────────────────────────────────
 const CATEGORY_KEYWORDS = {
+  pizza:       ['pizza', 'pizzeria', 'wood fired pizza', 'slice', 'margherita', 'pepperoni'],
+  burger:      ['burger', 'cheeseburger', 'hamburger', 'fast food', 'patty', 'bacon burger'],
+  coffee:      ['coffee', 'espresso', 'cappuccino', 'latte', 'cafe', 'roast', 'barista', 'cold brew'],
+  cake:        ['cake', 'chocolate cake', 'pastry', 'dessert', 'sweet delight', 'bakery', 'truffle cake', 'cupcake', 'brownie'],
+  food:        ['restaurant', 'food', 'cuisine', 'recipe', 'menu', 'chef', 'eat', 'dining', 'bistro', 'gourmet', 'culinary', 'tacos', 'pasta', 'sushi', 'biryani', 'noodles', 'snack', 'ice cream', 'bbq', 'barbecue'],
   festive:     ['diwali', 'festival', 'celebration', 'christmas', 'new year', 'eid', 'holiday', 'thanksgiving', 'dhanteras', 'festive', 'carnival', 'dhamaka'],
   ecommerce:   ['sale', 'deal', 'offer', 'discount', 'shopping', 'buy', 'shop', 'store', 'cart', 'retail', 'outlet', 'mega sale', 'flash sale', 'amazon', 'flipkart', 'walmart'],
   footwear:    ['sneakers', 'shoes', 'running shoes', 'boots', 'footwear', 'loafers', 'kicks', 'athletic shoes', 'trainers'],
   smartphone:  ['smartphone', 'phone', 'mobile', 'android', 'iphone', 'flagship phone', '5g phone'],
   tech:        ['technology', 'tech', 'software', 'app', 'saas', 'startup', 'ai', 'digital', 'gadget', 'device', 'smart device', 'hardware', 'cloud', 'cyber', 'platform', 'automation'],
-  food:        ['restaurant', 'food', 'cafe', 'cuisine', 'recipe', 'menu', 'chef', 'eat', 'dining', 'pizza', 'burger', 'bakery', 'coffee', 'bistro', 'gourmet', 'culinary', 'cake', 'chocolate cake', 'dessert', 'pastry'],
   fashion:     ['fashion', 'clothing', 'apparel', 'outfit', 'wear', 'couture', 'garment', 'collection', 'summer collection', 'dress', 'linen'],
   healthcare:  ['health', 'medical', 'hospital', 'wellness', 'clinic', 'doctor', 'pharmacy', 'fitness', 'gym', 'yoga', 'dental', 'care', 'therapy', 'checkup', 'preventive'],
   education:   ['education', 'coaching', 'classes', 'institute', 'school', 'college', 'university', 'admission', 'course', 'training', 'learn', 'academy', 'student', 'batches', 'campus', 'degree', 'study', 'admissions open', 'book', 'books', 'textbook', 'library', 'reading'],
@@ -29,6 +33,38 @@ const CATEGORY_KEYWORDS = {
 
 // ── Hero subject & atmosphere definitions by category ──────────────────────
 const CATEGORY_SUBJECT_PROFILES = {
+  pizza: {
+    heroSubject: 'authentic artisan stone-baked pizza loaded with melted bubbling mozzarella, rich tomato sauce, savory toppings, and fresh gourmet culinary herbs',
+    setting: 'resting on a rustic dark wood pizza peel and slate board with light dusting of flour and warm Italian stone oven ambient background glow',
+    colors: 'rustic terracotta, rich tomato red, melted mozzarella gold, basil green',
+    mood: 'mouthwatering appetizing artisanal gourmet pizza dining',
+    allowPeople: false,
+    layout: 'editorial',
+  },
+  burger: {
+    heroSubject: 'gourmet juicy grilled burger with melted cheddar cheese, crisp lettuce, ripe tomato slice, and toasted sesame brioche bun',
+    setting: 'presented on a dark slate board with golden crispy fries and warm gastro-pub soft bokeh lighting',
+    colors: 'golden amber, rich grilled mahogany, cheddar yellow, fresh leaf green',
+    mood: 'mouthwatering appetizing gourmet burger dining',
+    allowPeople: false,
+    layout: 'product-focused',
+  },
+  coffee: {
+    heroSubject: 'rich steaming artisanal espresso cappuccino in ceramic cup with intricate latte art and scattered roasted coffee beans',
+    setting: 'warm rustic wooden cafe table with morning sunlight streaming through cafe window and soft steam rising',
+    colors: 'roasted coffee brown, creamy ivory, warm morning gold',
+    mood: 'cozy premium cafe barista dining',
+    allowPeople: false,
+    layout: 'editorial',
+  },
+  cake: {
+    heroSubject: 'decadent artisanal dark chocolate ganache cake garnished with fresh wild berries and edible gold leaf',
+    setting: 'presented on an elegant dark rustic slate stand in an upscale pastry bistro with soft warm golden bokeh lighting',
+    colors: 'dark cocoa, warm amber, berry crimson, gold',
+    mood: 'luxurious indulgent dessert pastry',
+    allowPeople: false,
+    layout: 'editorial',
+  },
   footwear: {
     heroSubject: 'pair of ultra-premium athletic sneakers with intricate performance textures and aerodynamic soles',
     setting: 'resting dynamically on a polished reflective black acrylic studio pedestal with subtle smoke haze and dramatic dual softbox studio lighting',
@@ -46,9 +82,9 @@ const CATEGORY_SUBJECT_PROFILES = {
     layout: 'minimal-luxury',
   },
   food: {
-    heroSubject: 'decadent artisanal culinary masterpiece with authentic delicious textures, rich glaze, and fresh garnish',
-    setting: 'presented on an elegant dark rustic slate stand in a cozy warm bakery bistro with soft warm golden bokeh lighting',
-    colors: 'terracotta, warm chocolate amber, creamy ivory, deep berry',
+    heroSubject: 'mouthwatering freshly-prepared gourmet culinary dish with authentic delicious textures and fresh garnish',
+    setting: 'presented on an elegant dark rustic slate stand in a cozy warm bistro with soft warm golden bokeh lighting',
+    colors: 'terracotta, warm golden amber, creamy ivory, fresh herb green',
     mood: 'mouthwatering appetizing artisanal gourmet dining',
     allowPeople: false,
     layout: 'editorial',
@@ -117,6 +153,22 @@ const CATEGORY_SUBJECT_PROFILES = {
     allowPeople: false,
     layout: 'minimal-luxury',
   },
+  automotive: {
+    heroSubject: 'stunning luxury performance vehicle showcasing aerodynamic contours and glistening metallic finish',
+    setting: 'modern architectural showroom pavilion with dynamic floor reflections and sleek ambient linear lighting',
+    colors: 'metallic graphite, silver platinum, deep obsidian, electric blue',
+    mood: 'prestigious dynamic automotive excellence',
+    allowPeople: false,
+    layout: 'full-bleed',
+  },
+  travel: {
+    heroSubject: 'breathtaking tropical infinity pool terrace overlooking turquoise ocean waves and swaying palm silhouettes',
+    setting: 'luxury island beachfront resort at warm sun-drenched golden hour with crystalline waters',
+    colors: 'turquoise blue, warm sand gold, tropical emerald, coral',
+    mood: 'luxurious serene tropical getaway',
+    allowPeople: false,
+    layout: 'full-bleed',
+  },
   default: {
     heroSubject: 'commercial advertising product presentation tailored to the campaign',
     setting: 'modern commercial advertising studio set, minimalist clean podium with soft dual-tone studio rim lighting',
@@ -167,14 +219,17 @@ export function detectCategory(description = '', explicitIndustry = '') {
   // 2. Specific product verticals (prioritize domain-defining keywords)
   if (CATEGORY_KEYWORDS.realestate.some(kw => lower.includes(kw))) return 'realestate';
   if (CATEGORY_KEYWORDS.footwear.some(kw => lower.includes(kw))) return 'footwear';
-  if (CATEGORY_KEYWORDS.food.some(kw => lower.includes(kw))) return 'food';
+  if (CATEGORY_KEYWORDS.pizza.some(kw => lower.includes(kw)) || CATEGORY_KEYWORDS.burger.some(kw => lower.includes(kw)) || CATEGORY_KEYWORDS.coffee.some(kw => lower.includes(kw)) || CATEGORY_KEYWORDS.cake.some(kw => lower.includes(kw)) || CATEGORY_KEYWORDS.food.some(kw => lower.includes(kw))) return 'food';
   if (CATEGORY_KEYWORDS.healthcare.some(kw => lower.includes(kw))) return 'healthcare';
   if (CATEGORY_KEYWORDS.education.some(kw => lower.includes(kw))) return 'education';
+  if (CATEGORY_KEYWORDS.automotive.some(kw => lower.includes(kw))) return 'automotive';
+  if (CATEGORY_KEYWORDS.travel.some(kw => lower.includes(kw))) return 'travel';
   if (lower.includes('smartphone') || lower.includes('phone')) {
     if (explicitIndustry && explicitIndustry.toLowerCase().includes('ecommerce')) return 'ecommerce';
     return 'smartphone';
   }
   if (CATEGORY_KEYWORDS.fashion.some(kw => lower.includes(kw))) return 'fashion';
+  if (CATEGORY_KEYWORDS.tech.some(kw => lower.includes(kw))) return 'tech';
 
   if (isEcommerce) return 'ecommerce';
 
@@ -202,16 +257,22 @@ Analyze this marketing campaign request: "${description}"
 
 ${strictRules}
 
+CRITICAL RULES:
+1. The visualSubject MUST describe the EXACT hero product, dish, or item requested in "${description}".
+   - If the request is about pizza, the visualSubject MUST be an authentic pizza with bubbling cheese and savory toppings. Never output cake, desserts, or unrelated items.
+   - If the request is about burgers, coffee, clothing, tech, or any specific item, describe that exact item.
+2. The headline and subheadline MUST be 100% relevant to the requested product and offer. Never generate generic gift parcels or unrelated promotions.
+
 Output strictly valid JSON (no markdown formatting, no code blocks):
 {
-  "brandName": "Brand name if identified (e.g. Flipkart, TechNova, Amazon, etc.), else empty string",
+  "brandName": "Brand name if identified (e.g. Domino's, Flipkart, TechNova, Amazon, etc.), else empty string",
   "industry": "${explicitIndustry || profile.mood.split(' ')[0]}",
   "category": "${category}",
   "layout": "${profile.layout}",
-  "headline": "Punchy 3-6 word advertising headline featuring the exact offer (e.g. '${strictOffer || 'Special Promotional Offer'}')",
-  "subheadline": "Persuasive 6-12 word supporting value line. Never invent bank offers, EMI, or fake claims.",
+  "headline": "Punchy 3-6 word advertising headline specifically featuring the product and exact offer (e.g. '${strictOffer ? strictOffer + ' on ' + (category === 'pizza' ? 'Pizzas' : 'Special Selection') : 'Special Promotional Offer'}')",
+  "subheadline": "Persuasive 6-12 word supporting value line strictly about this product. Never invent bank offers, EMI, or fake claims.",
   "offer": "${strictOffer || ''}",
-  "cta": "High-converting action button text (e.g. 'Shop Now →', 'Explore Collection', 'Apply Today', 'Order Now')",
+  "cta": "High-converting action button text (e.g. 'Order Now →', 'Shop Now →', 'Claim Offer →')",
   "targetAudience": "Target audience description",
   "colorPalette": "${profile.colors}",
   "visualSubject": "${profile.heroSubject}",
@@ -235,39 +296,55 @@ Output strictly valid JSON (no markdown formatting, no code blocks):
   // Semantic heuristic fallback if Gemini is unconfigured or failed
   if (!analysis) {
     const words = description.split(/\s+/).filter(Boolean);
-    const potentialBrand = words.find(w => w.length > 2 && /^[A-Z]/.test(w) && !['Special', 'Diwali', 'Summer', 'Winter', 'New'].includes(w)) || '';
+    const potentialBrand = words.find(w => w.length > 2 && /^[A-Z]/.test(w) && !['Special', 'Diwali', 'Summer', 'Winter', 'New', 'Pizza', 'Fresh'].includes(w)) || '';
 
-    let headline = strictOffer ? `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer}` : `${potentialBrand ? potentialBrand + ' ' : ''}Special Campaign`;
+    let headline = strictOffer ? `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer} Special` : `${potentialBrand ? potentialBrand + ' ' : ''}Special Campaign`;
     let subheadline = `Experience premium commercial excellence and verified value with ${potentialBrand || 'our collection'}.`;
     let offer = strictOffer || '';
     let cta = 'Shop Now →';
 
     const lower = description.toLowerCase();
-    if (lower.includes('sneakers') || lower.includes('shoes')) {
-      headline = `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer || '40% OFF'} on Sneakers`.trim();
-      subheadline = 'Engineered for comfort, performance, and unmatched streetwear style.';
-      cta = 'Shop Sneakers →';
-    } else if (lower.includes('smartphone')) {
-      headline = `${potentialBrand ? potentialBrand + ' ' : ''}Next-Gen Smartphone Launch`.trim();
-      subheadline = 'Experience revolutionary curved OLED clarity, pro camera sensors, and ultra-fast speed.';
-      cta = 'Discover Innovation →';
-    } else if (lower.includes('cake') || lower.includes('food')) {
+    if (lower.includes('pizza')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer || 'Special'} Artisanal Pizzas`.trim();
+      subheadline = 'Hot, freshly stone-baked artisanal pizzas loaded with rich melted cheese and savory toppings.';
+      cta = 'Order Hot & Fresh →';
+    } else if (lower.includes('burger')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer || 'Special'} Gourmet Burgers`.trim();
+      subheadline = 'Juicy flame-grilled patties, melted cheddar, crisp lettuce, and toasted brioche buns.';
+      cta = 'Order Deliciously →';
+    } else if (lower.includes('coffee') || lower.includes('cafe') || lower.includes('latte') || lower.includes('espresso')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer || 'Artisanal'} Fresh Brewed Coffee`.trim();
+      subheadline = 'Freshly roasted beans, velvety espresso crema, and authentic barista perfection.';
+      cta = 'Order Your Cup →';
+    } else if (lower.includes('cake') || lower.includes('dessert') || lower.includes('pastry') || lower.includes('truffle')) {
       headline = `${potentialBrand ? potentialBrand + ' ' : ''}Artisanal Chocolate Indulgence`.trim();
       subheadline = 'Handcrafted with decadent dark cocoa ganache and fresh berries.';
       cta = 'Order Deliciously →';
+    } else if (lower.includes('food') || lower.includes('restaurant') || lower.includes('dining')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer || 'Special'} Gourmet Dining`.trim();
+      subheadline = 'Mouthwatering culinary specialties freshly prepared with authentic ingredients.';
+      cta = 'Order Deliciously →';
+    } else if (lower.includes('sneakers') || lower.includes('shoes')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer || '40% OFF'} on Sneakers`.trim();
+      subheadline = 'Engineered for comfort, performance, and unmatched streetwear style.';
+      cta = 'Shop Sneakers →';
+    } else if (lower.includes('smartphone') || lower.includes('phone')) {
+      headline = `${potentialBrand ? potentialBrand + ' ' : ''}Next-Gen Smartphone Launch`.trim();
+      subheadline = 'Experience revolutionary curved OLED clarity, pro camera sensors, and ultra-fast speed.';
+      cta = 'Discover Innovation →';
     } else if (lower.includes('fashion') || lower.includes('summer')) {
       headline = `${potentialBrand ? potentialBrand + ' ' : ''}New Summer Collection`.trim();
       subheadline = 'Breathe in effortless summer elegance with lightweight natural linen tailorings.';
       cta = 'Explore Collection →';
-    } else if (lower.includes('health') || lower.includes('awareness')) {
+    } else if (lower.includes('health') || lower.includes('wellness') || lower.includes('medical') || lower.includes('awareness')) {
       headline = `${potentialBrand ? potentialBrand + ' ' : ''}World Health Awareness`.trim();
       subheadline = 'Empowering healthier lives through preventive care, expert guidance, and daily wellness.';
       cta = 'Learn More →';
-    } else if (lower.includes('admission') || lower.includes('academy')) {
+    } else if (lower.includes('admission') || lower.includes('academy') || lower.includes('college') || lower.includes('course')) {
       headline = `${potentialBrand ? potentialBrand + ' ' : ''}Admissions Open 2027`.trim();
       subheadline = 'Shape your future with world-class faculty, modern campus labs, and global careers.';
       cta = 'Apply Now →';
-    } else if (lower.includes('apartment') || lower.includes('real estate') || lower.includes('homes')) {
+    } else if (lower.includes('apartment') || lower.includes('real estate') || lower.includes('homes') || lower.includes('villa')) {
       headline = `${potentialBrand ? potentialBrand + ' ' : ''}Luxury Residences Launch`.trim();
       subheadline = 'Experience panoramic horizon views, private infinity terraces, and world-class architecture.';
       cta = 'Book Private Tour →';
@@ -277,19 +354,30 @@ Output strictly valid JSON (no markdown formatting, no code blocks):
       cta = 'Claim Festive Deals →';
     }
 
+    let subjectProfile = profile;
+    if (lower.includes('pizza')) {
+      subjectProfile = CATEGORY_SUBJECT_PROFILES.pizza;
+    } else if (lower.includes('burger')) {
+      subjectProfile = CATEGORY_SUBJECT_PROFILES.burger;
+    } else if (lower.includes('coffee') || lower.includes('espresso') || lower.includes('latte')) {
+      subjectProfile = CATEGORY_SUBJECT_PROFILES.coffee;
+    } else if (lower.includes('cake') || lower.includes('pastry') || lower.includes('truffle')) {
+      subjectProfile = CATEGORY_SUBJECT_PROFILES.cake;
+    }
+
     analysis = {
       brandName: potentialBrand,
       industry: explicitIndustry || (category !== 'default' ? category : 'Commercial'),
       category,
-      layout: profile.layout,
+      layout: subjectProfile.layout || profile.layout,
       headline,
       subheadline,
       offer,
       cta,
       targetAudience: 'Customers and brand enthusiasts',
-      colorPalette: profile.colors,
-      visualSubject: profile.heroSubject,
-      visualSetting: profile.setting,
+      colorPalette: subjectProfile.colors || profile.colors,
+      visualSubject: subjectProfile.heroSubject || profile.heroSubject,
+      visualSetting: subjectProfile.setting || profile.setting,
     };
   }
 
@@ -350,6 +438,7 @@ export function generatePosterPrompt(analysis, researchData = {}, styleOverride 
     styleDetail,
     'balanced composition with dedicated negative space for advertising typography layout',
     'masterpiece, ultra-sharp 8k resolution, authentic realistic textures, perfect physical depth of field',
+    'strictly no watermarks, no coding screens, no computer monitors, no music players',
     peopleConstraint,
   ].filter(Boolean);
 

@@ -181,16 +181,17 @@ export const ImageGenerationPage = () => {
 
       const targetStyle = overrides.style || style;
       const targetSize = overrides.sizeKey || sizeKey;
+      const isManualEditMode = activeTab === 'edit';
 
       const payload = {
         description: desc,
         style: targetStyle,
         size: targetSize,
         additionalInstructions,
-        customHeadline: overrides.headline || headline,
-        customSubtext: overrides.subheadline || subheadline,
-        customOffer: overrides.offer || offer,
-        customCta: overrides.cta || cta,
+        customHeadline: overrides.headline !== undefined ? overrides.headline : (isManualEditMode ? headline : ''),
+        customSubtext: overrides.subheadline !== undefined ? overrides.subheadline : (isManualEditMode ? subheadline : ''),
+        customOffer: overrides.offer !== undefined ? overrides.offer : (isManualEditMode ? offer : ''),
+        customCta: overrides.cta !== undefined ? overrides.cta : (isManualEditMode ? cta : ''),
         seed: overrides.seed || Math.floor(Math.random() * 999999),
         model: selectedModel,
       };
@@ -502,7 +503,12 @@ export const ImageGenerationPage = () => {
                   <button
                     key={preset.label}
                     type="button"
-                    onClick={() => setDescription(preset.prompt)}
+                    onClick={() => {
+                      setDescription(preset.prompt);
+                      setHeadline('');
+                      setSubheadline('');
+                      setOffer('');
+                    }}
                     className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-brand-violet/10 hover:text-brand-violet text-slate-600 transition-colors border border-slate-200/60 cursor-pointer"
                   >
                     {preset.label}
@@ -604,7 +610,10 @@ export const ImageGenerationPage = () => {
                   type="button"
                   onClick={() => {
                     setDescription(ex.desc);
-                    handleGenerate({ description: ex.desc, brandName: ex.brand });
+                    setHeadline('');
+                    setSubheadline('');
+                    setOffer('');
+                    handleGenerate({ description: ex.desc, brandName: ex.brand, headline: '', subheadline: '', offer: '' });
                   }}
                   className="text-[11px] bg-slate-100 hover:bg-brand-violet/10 hover:text-brand-violet hover:border-brand-violet/30 border border-slate-200 text-slate-700 py-1 px-2.5 rounded-lg transition-colors font-medium"
                 >

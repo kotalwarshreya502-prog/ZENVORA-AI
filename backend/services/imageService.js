@@ -94,34 +94,46 @@ async function generateWithGoogleImagen(prompt, apiKey, width = 1024, height = 1
  * 2. Pollinations AI FLUX.1 Engine (Free, high-speed, zero API key required, photorealistic)
  */
 async function generateWithPollinations(prompt, model = 'flux', width = 1024, height = 1024, seed = null) {
-  const cleanPrompt = encodeURIComponent(prompt.trim());
+  const cleanPrompt = encodeURIComponent(prompt.trim().substring(0, 260));
   const cleanSeed = Math.abs(Number(seed) || Math.floor(Math.random() * 1000000));
-  const validModel = ['flux', 'flux-realism', 'flux-3d', 'flux-anime', 'turbo'].includes(model) ? model : 'flux';
-  const url = `https://image.pollinations.ai/prompt/${cleanPrompt}?width=${Math.min(width, 1440)}&height=${Math.min(height, 1440)}&seed=${cleanSeed}&model=${validModel}&nologo=true`;
+  
+  // Model routing: prioritize flux or clean endpoint
+  const targetUrls = [
+    `https://image.pollinations.ai/prompt/${cleanPrompt}?width=${Math.min(width, 1200)}&height=${Math.min(height, 1200)}&seed=${cleanSeed}&model=flux&nologo=true`,
+    `https://image.pollinations.ai/prompt/${cleanPrompt}?width=${Math.min(width, 1024)}&height=${Math.min(height, 1024)}&seed=${cleanSeed}&nologo=true`,
+  ];
 
-  console.log(`[ImageService] Calling Pollinations AI (${validModel}, ${width}x${height})...`);
-  const response = await fetch(url, {
-    signal: AbortSignal.timeout(18000),
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    },
-  });
+  let lastErr = null;
+  for (const url of targetUrls) {
+    try {
+      console.log(`[ImageService] Calling Pollinations AI (${url.slice(0, 75)}...)...`);
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(16000),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      });
 
-  if (!response.ok) {
-    throw new Error(`Pollinations HTTP ${response.status}: ${response.statusText}`);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        if (arrayBuffer && arrayBuffer.byteLength > 2000) {
+          return {
+            buffer: Buffer.from(arrayBuffer),
+            model: 'black-forest-labs/FLUX.1-schnell',
+            provider: 'pollinations-flux',
+            upstreamUrl: url,
+          };
+        }
+      } else {
+        const errText = await response.text().catch(() => '');
+        lastErr = new Error(`Pollinations HTTP ${response.status}: ${errText.slice(0, 150)}`);
+      }
+    } catch (err) {
+      lastErr = err;
+    }
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  if (!arrayBuffer || arrayBuffer.byteLength < 1000) {
-    throw new Error('Pollinations returned insufficient or empty image bytes');
-  }
-
-  return {
-    buffer: Buffer.from(arrayBuffer),
-    model: validModel === 'flux' ? 'black-forest-labs/FLUX.1-schnell' : `pollinations-${validModel}`,
-    provider: 'pollinations-flux',
-    upstreamUrl: url,
-  };
+  throw lastErr || new Error('Pollinations returned insufficient or empty image bytes');
 }
 
 /**
@@ -217,7 +229,23 @@ function findVerifiedCampaignAsset(topic = '', category = '', seed = 0) {
   const cLow = (category || '').toLowerCase();
 
   let targetPrefixes = [];
-  if (tLow.includes('book') || tLow.includes('education') || tLow.includes('study') || tLow.includes('academy') || tLow.includes('course') || tLow.includes('admission') || tLow.includes('batch') || tLow.includes('student') || cLow === 'education') {
+  if (tLow.includes('pizza') || cLow === 'pizza') {
+    targetPrefixes = ['pizza_artisanal_wood_fired_commercial'];
+  } else if (tLow.includes('burger') || cLow === 'burger') {
+    targetPrefixes = ['burger_gourmet_commercial'];
+  } else if (tLow.includes('coffee') || tLow.includes('cafe') || tLow.includes('espresso') || tLow.includes('latte') || cLow === 'coffee') {
+    targetPrefixes = ['coffee_espresso_cafe_commercial'];
+  } else if (tLow.includes('cake') || tLow.includes('chocolate') || tLow.includes('pastry') || tLow.includes('sweet delight') || cLow === 'cake') {
+    targetPrefixes = ['sweet_delight_chocolate_cake'];
+  } else if (tLow.includes('car') || tLow.includes('vehicle') || tLow.includes('automobile') || cLow === 'automotive') {
+    targetPrefixes = ['automotive_luxury_car_commercial'];
+  } else if (tLow.includes('travel') || tLow.includes('vacation') || tLow.includes('resort') || tLow.includes('hotel') || cLow === 'travel') {
+    targetPrefixes = ['travel_resort_tropical_vacation'];
+  } else if (tLow.includes('gym') || tLow.includes('fitness') || tLow.includes('workout') || cLow === 'sports') {
+    targetPrefixes = ['fitness_gym_workout_commercial'];
+  } else if (tLow.includes('watch') || tLow.includes('jewelry') || tLow.includes('ring')) {
+    targetPrefixes = ['jewelry_luxury_watch_commercial'];
+  } else if (tLow.includes('book') || tLow.includes('education') || tLow.includes('study') || tLow.includes('academy') || tLow.includes('course') || tLow.includes('admission') || tLow.includes('batch') || tLow.includes('student') || cLow === 'education') {
     targetPrefixes = ['education_books_library_study'];
   } else if (tLow.includes('real estate') || tLow.includes('apartment') || tLow.includes('villa') || tLow.includes('property') || tLow.includes('home') || cLow === 'realestate') {
     targetPrefixes = ['realestate_luxury_apartment_architecture'];
@@ -225,8 +253,6 @@ function findVerifiedCampaignAsset(topic = '', category = '', seed = 0) {
     targetPrefixes = ['flipkart_premium_sneakers'];
   } else if (tLow.includes('smartphone') || tLow.includes('phone') || tLow.includes('technova') || cLow === 'smartphone') {
     targetPrefixes = ['technova_flagship_smartphone'];
-  } else if (tLow.includes('cake') || tLow.includes('food') || tLow.includes('sweet delight') || cLow === 'food') {
-    targetPrefixes = ['sweet_delight_chocolate_cake'];
   } else if (tLow.includes('summer') || tLow.includes('urban style') || tLow.includes('fashion') || tLow.includes('cloth') || cLow === 'fashion') {
     targetPrefixes = ['urban_style_summer_editorial'];
   } else if (tLow.includes('health') || tLow.includes('wellness') || tLow.includes('medical') || cLow === 'healthcare') {
@@ -235,6 +261,10 @@ function findVerifiedCampaignAsset(topic = '', category = '', seed = 0) {
     targetPrefixes = ['festive_diwali_shopping_commercial'];
   } else if (cLow === 'ecommerce') {
     targetPrefixes = ['festive_diwali_shopping_commercial', 'flipkart_premium_sneakers'];
+  } else if (cLow === 'food') {
+    targetPrefixes = ['pizza_artisanal_wood_fired_commercial', 'burger_gourmet_commercial', 'sweet_delight_chocolate_cake'];
+  } else {
+    targetPrefixes = ['generic_commercial_studio_minimal'];
   }
 
   const seedNum = Math.abs(Number(seed) || Math.floor(Math.random() * 1000));
