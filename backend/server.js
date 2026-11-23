@@ -79,8 +79,20 @@ const assetsDir = path.resolve(__dirname, 'assets');
 if (!fs.existsSync(postersDir)) {
   fs.mkdirSync(postersDir, { recursive: true });
 }
-app.use('/uploads', express.static(uploadsDir));
-app.use('/assets', express.static(assetsDir));
+app.use('/uploads', express.static(uploadsDir, {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+  },
+}));
+app.use('/assets', express.static(assetsDir, {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+  },
+}));
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api', apiRouter);
