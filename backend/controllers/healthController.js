@@ -29,82 +29,35 @@ export const getHealth = async (req, res) => {
     name: dbConnected ? (mongoose.connection.name || 'zenvora_ai') : null,
   };
 
-  // 3. Text AI Engine Status (Google Gemini)
-  const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
-  const geminiConfigured = Boolean(
-    geminiKey && geminiKey !== 'your_gemini_api_key_here' && geminiKey.length > 10
-  );
-
-  let textAiStatus = geminiConfigured ? 'available' : 'unconfigured';
-  let textAiLatencyMs = null;
-  let textAiError = null;
-
-  if (geminiConfigured && isDeep) {
-    try {
-      const start = Date.now();
-      // Test gemini-3.1-flash-image or gemini-2.5-flash-image
-      const testImageModel = async (modelName, method, body) => {
-        try {
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:${method}?key=${geminiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            }
-          );
-          const text = await res.text();
-          return { model: modelName, method, status: res.status, snippet: text.slice(0, 300) };
-        } catch (e) {
-          return { model: modelName, method, error: e.message };
-        }
-      };
-
-      const testResults = await Promise.all([
-        testImageModel('gemini-3.1-flash-image', 'generateContent', {
-          contents: [{ parts: [{ text: 'generate an image of a red apple on a clean table' }] }],
-        }),
-        testImageModel('gemini-3.1-flash-image', 'predict', {
-          instances: [{ prompt: 'generate an image of a red apple on a clean table' }],
-        }),
-        testImageModel('gemini-2.5-flash-image', 'generateContent', {
-          contents: [{ parts: [{ text: 'generate an image of a red apple on a clean table' }] }],
-        }),
-        testImageModel('gemini-2.5-flash', 'generateContent', {
-          contents: [{ parts: [{ text: 'hello' }] }],
-        }),
-      ]);
-
-      textAiLatencyMs = Date.now() - start;
-      textAiStatus = 'tested';
-      textAiError = JSON.stringify(testResults);
-    } catch (e) {
-      textAiStatus = 'network_unreachable';
-      textAiError = e.message;
-    }
-  }
+  // 3. Central AI Engine Status (OpenAI & Anthropic Claude)
+  const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
+  const claudeKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+  const openaiConfigured = Boolean(openaiKey && openaiKey !== 'your_openai_api_key_here' && openaiKey.length > 10);
+  const claudeConfigured = Boolean(claudeKey && claudeKey !== 'your_claude_api_key_here' && claudeKey.length > 10);
+  const aiConfigured = openaiConfigured || claudeConfigured;
 
   const textAi = {
-    status: textAiStatus,
-    provider: 'Google Gemini',
-    configured: geminiConfigured,
-    models: ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'],
-    latencyMs: textAiLatencyMs,
-    errorDetail: textAiError,
+    status: aiConfigured ? 'available' : 'deterministic_fallback',
+    provider: openaiConfigured && claudeConfigured ? 'OpenAI GPT-4o + Anthropic Claude 3.5' : (openaiConfigured ? 'OpenAI GPT-4o' : (claudeConfigured ? 'Anthropic Claude 3.5' : 'Zenvora Multi-Provider Engine')),
+    configured: aiConfigured,
+    openaiConfigured,
+    claudeConfigured,
+    models: ['gpt-4o', 'gpt-4o-mini', 'claude-3-7-sonnet', 'claude-3-5-sonnet', 'claude-3-5-haiku'],
+    capabilities: ['Dynamic Marketing Generation', 'Multi-Provider Orchestration', 'Deep Reasoning', 'Campaign Planning'],
   };
 
-  // 4. Image AI Engine Status (Google DeepMind Imagen 3 / Enterprise FLUX.1)
+  // 4. Image AI Engine Status (OpenAI DALL-E 3 / Enterprise FLUX)
   const imageAi = {
-    status: geminiConfigured ? 'available' : 'ready',
-    provider: 'Google DeepMind Imagen 3 (imagen-3.0-generate-002) / Enterprise FLUX',
-    models: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001', 'FLUX.1-schnell'],
+    status: openaiConfigured ? 'available' : 'ready',
+    provider: openaiConfigured ? 'OpenAI DALL-E 3 (1024x1024 HD)' : 'High-Speed Precision Engine',
+    models: ['dall-e-3', 'FLUX.1-schnell'],
     capabilities: ['1:1 Square', '4:5 Portrait', '9:16 Story', '16:9 Landscape', 'A4 Print'],
   };
 
   // 5. Research Provider Status
   const researchProvider = {
-    status: geminiConfigured ? 'available' : 'ready',
-    provider: 'Gemini Web Grounding & Semantic Knowledge Engine',
+    status: aiConfigured ? 'available' : 'ready',
+    provider: 'ZENVORA Deep Knowledge & Brand Extraction Engine',
     capabilities: ['Brand Intelligence', 'Competitor Research', 'Topic Analysis', 'Audience Profiling'],
   };
 
@@ -122,8 +75,10 @@ export const getHealth = async (req, res) => {
     message: isHealthy ? 'All primary ZENVORA AI services online' : 'ZENVORA AI running with sub-service notices',
     database: database.status,
     jwtConfigured: Boolean(process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 20),
-    geminiConfigured,
-    aiEngine: geminiConfigured ? 'gemini-1.5-flash' : 'zenvora-direct',
+    aiConfigured,
+    openaiConfigured,
+    claudeConfigured,
+    aiEngine: openaiConfigured ? 'gpt-4o' : (claudeConfigured ? 'claude-3-5-sonnet' : 'zenvora-unified'),
     subsystems: {
       backend,
       database,

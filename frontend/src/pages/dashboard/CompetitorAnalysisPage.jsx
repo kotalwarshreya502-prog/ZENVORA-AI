@@ -45,7 +45,7 @@ export const CompetitorAnalysisPage = () => {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Badge variant="violet" size="sm">AI Intelligence Engine</Badge>
-          <span className="text-xs text-slate-500">• Live Fetch + Gemini</span>
+          <span className="text-xs text-slate-500">• Live Fetch + Claude / GPT-4o</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-navy tracking-tight">
           Competitor Analysis

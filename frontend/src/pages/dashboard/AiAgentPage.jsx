@@ -50,7 +50,7 @@ export const AiAgentPage = () => {
       }
     } catch (err) {
       console.error('Agent execution error:', err);
-      setErrorMsg(err?.message || 'Autonomous Agent failed to execute. Please verify your Gemini API key and connection.');
+      setErrorMsg(err?.message || 'Autonomous Agent failed to execute. Please verify your OpenAI / Claude API key and connection.');
     } finally {
       setRunning(false);
     }

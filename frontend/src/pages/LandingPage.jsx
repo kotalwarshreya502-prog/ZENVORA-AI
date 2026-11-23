@@ -112,7 +112,7 @@ export const LandingPage = () => {
           </div>
           <div className="flex items-center gap-1.5">
             <CheckCircle2 size={15} className="text-brand-teal" />
-            <span>Real Gemini AI Engine</span>
+            <span>OpenAI &amp; Claude AI Engine</span>
           </div>
           <div className="flex items-center gap-1.5 hidden sm:flex">
             <CheckCircle2 size={15} className="text-brand-teal" />
@@ -331,7 +331,7 @@ export const LandingPage = () => {
               icon: <Bot className="text-brand-violet" size={26} />,
               title: 'AI Content Studio',
               desc: 'Generate high-performing social posts, ad copy, captions, and marketing concepts tailored to each network.',
-              tag: 'Gemini 1.5 Flash',
+              tag: 'GPT-4o & Claude 3.5',
             },
             {
               icon: <FileText className="text-brand-teal" size={26} />,
@@ -400,7 +400,7 @@ export const LandingPage = () => {
               {
                 step: '02',
                 title: 'Generate High-Depth Assets',
-                desc: 'Produce authoritative blog drafts and platform-native social content powered by Google Gemini models.',
+                desc: 'Produce authoritative blog drafts and platform-native social content powered by OpenAI GPT-4o and Anthropic Claude.',
               },
               {
                 step: '03',

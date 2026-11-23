@@ -140,7 +140,7 @@ export const ImageGenerationPage = () => {
   const [logoUrl, setLogoUrl]         = useState('');
 
   // Execution states
-  const [selectedModel, setSelectedModel] = useState('flux');
+  const [selectedModel, setSelectedModel] = useState('dall-e-3');
   const [isEnhancing, setIsEnhancing]     = useState(false);
   const [pipelineStage, setPipelineStage] = useState(-1);
   const [loading, setLoading]             = useState(false);
@@ -149,6 +149,23 @@ export const ImageGenerationPage = () => {
   const [imgLoaded, setImgLoaded]         = useState(false);
   const [activeTab, setActiveTab]         = useState('preview'); // 'preview' | 'edit' | 'specs'
   const [downloading, setDownloading]     = useState(false);
+
+  // Reset to clean state for a new poster
+  const handleResetState = () => {
+    setDescription('');
+    setBrandName('');
+    setHeadline('');
+    setSubheadline('');
+    setOffer('');
+    setCta('Shop Now →');
+    setWebsite('');
+    setLogoUrl('');
+    setAdditionalInstructions('');
+    setResult(null);
+    setError(null);
+    setImgLoaded(false);
+    setActiveTab('preview');
+  };
 
   const selectedSize = SIZE_PRESETS.find(s => s.key === sizeKey) || SIZE_PRESETS[0];
 
@@ -185,6 +202,7 @@ export const ImageGenerationPage = () => {
 
       const payload = {
         description: desc,
+        brandName: overrides.brandName !== undefined ? overrides.brandName : brandName,
         style: targetStyle,
         size: targetSize,
         additionalInstructions,
@@ -288,7 +306,7 @@ export const ImageGenerationPage = () => {
   };
 
   // ── Download Full Composed HD Poster via Canvas ─────────────────────────────
-  const handleDownloadHDPoster = async () => {
+  const handleDownloadHDPoster = async (format = 'png') => {
     if (!result?.imageUrl) return;
     setDownloading(true);
 
@@ -405,9 +423,11 @@ export const ImageGenerationPage = () => {
       ctx.fillText(displayWeb, width - pad, ctaBtnY + 24);
       ctx.textAlign = 'left';
 
-      // Trigger download
-      const dataUrl = canvas.toDataURL('image/png');
-      const filename = `${effectiveBrand.toLowerCase().replace(/[^a-z0-9]/g, '-')}-campaign-poster.png`;
+      // Trigger download in requested format
+      const mimeType = format === 'jpg' || format === 'jpeg' ? 'image/jpeg' : 'image/png';
+      const ext = format === 'jpg' || format === 'jpeg' ? 'jpg' : 'png';
+      const dataUrl = canvas.toDataURL(mimeType, 0.95);
+      const filename = `${effectiveBrand.toLowerCase().replace(/[^a-z0-9]/g, '-')}-campaign-poster.${ext}`;
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = filename;
@@ -522,6 +542,20 @@ export const ImageGenerationPage = () => {
                 placeholder="e.g. Amazon: 50% OFF Mega Sale with festive delivery boxes, studio softbox lighting, 8k resolution"
                 rows={3}
                 className="w-full text-xs rounded-xl border border-slate-200 p-3 focus:outline-none focus:ring-2 focus:ring-brand-violet/20 focus:border-brand-violet resize-none placeholder:text-slate-400"
+              />
+            </div>
+
+            {/* Target Brand Name & Official Logo Input */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Brand Name &amp; Official Logo <span className="text-[10px] text-slate-400 font-normal">(Optional — e.g. Domino's, Nike, Apple, Amazon)</span>
+              </label>
+              <input
+                type="text"
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
+                placeholder="e.g. Domino's, Pizza Hut, Nike, Amazon (or leave blank for auto-brand)"
+                className="w-full text-xs rounded-xl border border-slate-200 p-2.5 focus:outline-none focus:ring-2 focus:ring-brand-violet/20 focus:border-brand-violet placeholder:text-slate-400"
               />
             </div>
 
@@ -647,6 +681,13 @@ export const ImageGenerationPage = () => {
                 <Edit3 size={13} />
                 Edit Poster Copy
               </button>
+              <button
+                onClick={handleResetState}
+                title="Clear all fields and reset poster"
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+              >
+                Reset / New
+              </button>
             </div>
 
             {/* Interactive User Controls */}
@@ -672,12 +713,22 @@ export const ImageGenerationPage = () => {
               </button>
 
               <button
-                onClick={handleDownloadHDPoster}
+                onClick={() => handleDownloadHDPoster('png')}
                 disabled={!result || downloading}
-                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold bg-brand-violet text-white rounded-lg hover:bg-brand-violet/90 transition-all shadow-xs disabled:opacity-40"
+                title="Download composite poster as high-res PNG"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-brand-violet text-white rounded-lg hover:bg-brand-violet/90 transition-all shadow-xs disabled:opacity-40"
               >
-                {downloading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
-                <span>Download HD Poster</span>
+                {downloading ? <RefreshCw size={13} className="animate-spin" /> : <Download size={13} />}
+                <span>PNG HD</span>
+              </button>
+
+              <button
+                onClick={() => handleDownloadHDPoster('jpg')}
+                disabled={!result || downloading}
+                title="Download composite poster as high-res JPG"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-900 transition-all shadow-xs disabled:opacity-40"
+              >
+                <span>JPG</span>
               </button>
             </div>
           </div>
@@ -748,17 +799,23 @@ export const ImageGenerationPage = () => {
                       {logoUrl ? (
                         <img
                           src={logoUrl}
-                          alt=""
-                          className="w-4 h-4 rounded-full bg-white p-0.5 object-contain"
-                          onError={(e) => { e.target.style.display = 'none'; }}
+                          alt={brandName}
+                          className="w-5 h-5 rounded-full bg-white p-0.5 object-contain shadow-xs shrink-0"
+                          onError={(e) => {
+                            if (result?.logoResult?.fallbackUrl && e.target.src !== result.logoResult.fallbackUrl) {
+                              e.target.src = result.logoResult.fallbackUrl;
+                            } else {
+                              e.target.style.display = 'none';
+                            }
+                          }}
                         />
                       ) : (
-                        <span className="w-4 h-4 rounded-full bg-brand-violet text-white text-[9px] flex items-center justify-center font-bold">
-                          {(brandName || 'B').charAt(0)}
+                        <span className="w-5 h-5 rounded-full bg-brand-violet text-white text-[10px] flex items-center justify-center font-bold shrink-0">
+                          {(brandName || 'B').charAt(0).toUpperCase()}
                         </span>
                       )}
                       <span className="text-xs font-bold tracking-wide">
-                        {brandName || 'ZENVORA'}
+                        {brandName || 'BRAND'}
                       </span>
                     </div>
 
@@ -780,6 +837,61 @@ export const ImageGenerationPage = () => {
                         {subheadline}
                       </p>
                     )}
+
+                    <div className="pt-2 flex items-center justify-between gap-4">
+                      <span className="inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-brand-violet text-white font-bold text-xs shadow-md shadow-brand-violet/40">
+                        {cta || 'Shop Now →'}
+                      </span>
+
+                      <span className="text-[11px] text-white/60 font-mono font-semibold tracking-wide">
+                        {website || 'zenvora.ai'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (description || brandName || headline || offer) ? (
+                /* Live Interactive Preview Before Generation */
+                <div
+                  className={`w-full max-w-md ${selectedSize.aspect} relative rounded-2xl overflow-hidden shadow-2xl border border-slate-700 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 flex flex-col justify-between select-none`}
+                >
+                  {/* Subtle decorative mesh */}
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-500/20 via-transparent to-transparent pointer-events-none" />
+
+                  {/* Top Section: Brand Pill & Offer */}
+                  <div className="relative z-20 p-5 flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-lg">
+                      <span className="w-5 h-5 rounded-full bg-brand-violet text-white text-[10px] flex items-center justify-center font-bold shrink-0">
+                        {(brandName || 'Z').charAt(0).toUpperCase()}
+                      </span>
+                      <span className="text-xs font-bold tracking-wide">
+                        {brandName || 'BRAND PREVIEW'}
+                      </span>
+                    </div>
+
+                    {(offer || 'SPECIAL OFFER') && (
+                      <div className="px-3.5 py-1 rounded-md bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider shadow-md">
+                        {offer || 'SPECIAL OFFER'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Center Notification */}
+                  <div className="relative z-10 text-center px-6 py-4">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white/80 text-[11px] font-medium">
+                      <Sparkles size={12} className="text-brand-violet" />
+                      Live Typography Preview — Click Generate for AI Visual
+                    </span>
+                  </div>
+
+                  {/* Bottom Section: Headline, Subheadline & CTA */}
+                  <div className="relative z-20 p-6 space-y-2.5">
+                    <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight leading-tight drop-shadow-md">
+                      {headline || description || 'CAMPAIGN HEADLINE'}
+                    </h3>
+
+                    <p className="text-xs text-white/80 font-medium leading-relaxed drop-shadow-sm line-clamp-2">
+                      {subheadline || 'Premium commercial advertising edition. Experience authentic quality and verified value.'}
+                    </p>
 
                     <div className="pt-2 flex items-center justify-between gap-4">
                       <span className="inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-brand-violet text-white font-bold text-xs shadow-md shadow-brand-violet/40">

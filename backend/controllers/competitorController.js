@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import GeminiService from '../services/geminiService.js';
+import AIProviderService from '../services/aiProviderService.js';
 import { errorResponse, successResponse } from '../utils/responseHandler.js';
 
 async function saveToHistory(userId, module, input, output, model) {
@@ -7,8 +7,8 @@ async function saveToHistory(userId, module, input, output, model) {
     const { default: GenerationHistory } = await import('../models/GenerationHistory.js');
     await GenerationHistory.create({
       userId, requestId: crypto.randomUUID(), module, input, output,
-      provider: model?.includes('gemini') ? 'google-gemini' : 'fallback-engine',
-      model: model || 'zenvora-engine-v1', status: 'success',
+      provider: output.provider || 'claude',
+      model: model || 'claude-3-7-sonnet-20250219', status: 'success',
     });
   } catch (e) { console.warn('[History] Save failed:', e.message); }
 }
@@ -104,7 +104,14 @@ ${contentForAnalysis}
 
 Provide actionable competitive intelligence.`;
 
-    const aiResult = await GeminiService.callGemini(prompt, systemInstruction);
+    const customKey = req.headers['x-anthropic-api-key'] || req.headers['x-openai-api-key'] || '';
+    const aiResult = await AIProviderService.generateText({
+      prompt,
+      systemPrompt: systemInstruction,
+      task: 'competitor',
+      preferredProvider: 'claude',
+      customApiKey: customKey,
+    });
 
     const output = {
       requestId,
@@ -114,9 +121,9 @@ Provide actionable competitive intelligence.`;
       metaDescription,
       socialLinks,
       isLiveFetch,
-      analysis: aiResult?.text || `Analysis unavailable. Configure GEMINI_API_KEY in Render to enable AI-powered competitor analysis.`,
-      model: aiResult?.source || 'zenvora-engine-v1',
-      provider: aiResult ? 'google-gemini' : 'fallback-engine',
+      analysis: aiResult?.text || `Analysis unavailable. Configure OPENAI_API_KEY or ANTHROPIC_API_KEY in Render dashboard.`,
+      model: aiResult?.model || 'claude-3-7-sonnet-20250219',
+      provider: aiResult?.provider || 'claude',
       limitations: isLiveFetch
         ? 'Analysis based on publicly accessible page content only. Dynamic/authenticated content not analyzed.'
         : 'Could not fetch competitor page. Analysis based on domain knowledge only.',

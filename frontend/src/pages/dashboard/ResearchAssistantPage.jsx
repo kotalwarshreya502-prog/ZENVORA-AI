@@ -47,7 +47,7 @@ export const ResearchAssistantPage = () => {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Badge variant="violet" size="sm">AI Research Engine</Badge>
-          <span className="text-xs text-slate-500">• Wikipedia + Gemini</span>
+          <span className="text-xs text-slate-500">• Wikipedia + Claude 3.5</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-navy tracking-tight">
           Research Assistant
@@ -136,7 +136,7 @@ export const ResearchAssistantPage = () => {
             <Card className="p-8 text-center space-y-3">
               <Loader2 size={32} className="animate-spin text-brand-violet mx-auto" />
               <p className="text-sm font-semibold text-slate-700">Fetching live sources & analyzing…</p>
-              <p className="text-xs text-slate-500">Querying Wikipedia → Running Gemini analysis</p>
+              <p className="text-xs text-slate-500">Querying Wikipedia → Running Claude analysis</p>
             </Card>
           )}
 
@@ -196,7 +196,7 @@ export const ResearchAssistantPage = () => {
                 <div className="flex items-center gap-2">
                   <Sparkles size={16} className="text-brand-violet" />
                   <span className="text-sm font-bold text-brand-navy">AI Analysis & Summary</span>
-                  <Badge variant="violet" size="xs">Gemini</Badge>
+                  <Badge variant="violet" size="xs">Claude</Badge>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4 text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
                   {result.summary}
@@ -209,7 +209,7 @@ export const ResearchAssistantPage = () => {
             <Card className="p-12 text-center space-y-3 text-slate-400">
               <Search size={40} className="mx-auto opacity-20" />
               <p className="text-sm font-semibold">Enter a topic to begin research</p>
-              <p className="text-xs">Sources are fetched live from Wikipedia and analyzed by Gemini AI.</p>
+              <p className="text-xs">Sources are fetched live from Wikipedia and analyzed by Claude AI.</p>
             </Card>
           )}
         </div>

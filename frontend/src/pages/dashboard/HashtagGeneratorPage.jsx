@@ -51,7 +51,7 @@ export const HashtagGeneratorPage = () => {
   const [brandName,     setBrandName]     = useState('');
   const [industry,      setIndustry]      = useState('');
   const [platform,      setPlatform]      = useState('instagram');
-  const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
+  const [selectedModel, setSelectedModel] = useState('gpt-4o-mini');
   const [isEnhancing,   setIsEnhancing]   = useState(false);
   const [loading,       setLoading]       = useState(false);
   const [copiedSection, setCopiedSection] = useState(null);

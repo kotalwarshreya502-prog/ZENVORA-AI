@@ -27,7 +27,7 @@ export const SettingsPage = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   // AI Model settings
-  const [aiModel, setAiModel] = useState('gemini-1.5-flash');
+  const [aiModel, setAiModel] = useState('gpt-4o');
   const [temperature, setTemperature] = useState(0.7);
   const [customApiKey, setCustomApiKey] = useState('');
 
@@ -225,7 +225,7 @@ export const SettingsPage = () => {
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <Sparkles size={16} className="text-brand-violet" />
-              Google Gemini AI Engine Parameters
+              OpenAI &amp; Anthropic Claude AI Engine Parameters
             </h2>
 
             <div className="space-y-4">
@@ -238,8 +238,10 @@ export const SettingsPage = () => {
                   onChange={(e) => setAiModel(e.target.value)}
                   className="w-full text-xs rounded-lg border border-slate-300 p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
                 >
-                  <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Ultra-low latency, 1M context)</option>
-                  <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Deep reasoning & long-form SEO)</option>
+                  <option value="gpt-4o">OpenAI GPT-4o (Frontier Multimodal &amp; High-Impact Copy)</option>
+                  <option value="claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet (Nuance, Strategy &amp; In-depth SEO)</option>
+                  <option value="gpt-4o-mini">OpenAI GPT-4o Mini (High-speed Captions &amp; Tags)</option>
+                  <option value="claude-3-7-sonnet">Anthropic Claude 3.7 Sonnet (Advanced Strategic Reasoning)</option>
                 </select>
               </div>
 
@@ -268,7 +270,7 @@ export const SettingsPage = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Custom Gemini API Key (Optional)
+                  Custom AI API Key (OpenAI / Claude)
                 </label>
                 <input
                   type="password"

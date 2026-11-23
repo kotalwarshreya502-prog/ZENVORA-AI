@@ -35,8 +35,8 @@ const generationHistorySchema = new mongoose.Schema(
     campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', default: null },
     input: { type: mongoose.Schema.Types.Mixed, required: true },   // sanitized request params
     output: { type: mongoose.Schema.Types.Mixed, required: true },  // AI response
-    provider: { type: String, default: 'google-gemini' },
-    model: { type: String, default: 'gemini-1.5-flash' },
+    provider: { type: String, default: 'openai' },
+    model: { type: String, default: 'gpt-4o' },
     status: { type: String, enum: ['success', 'failed', 'partial'], default: 'success' },
     isSaved: { type: Boolean, default: false },   // user explicitly saved this
     title: { type: String, default: '' },          // title or topic

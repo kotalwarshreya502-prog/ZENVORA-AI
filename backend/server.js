@@ -120,22 +120,25 @@ const server = app.listen(PORT, async () => {
   console.log('=============================================================\n');
 
   // ── Environment variable audit ──────────────────────────────────────────────
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey || geminiKey.trim() === '' || geminiKey === 'your_gemini_api_key_here') {
-    console.warn('⚠️  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.warn('⚠️  GEMINI_API_KEY is NOT configured!');
-    console.warn('⚠️  All AI generators will use the static fallback engine.');
-    console.warn('⚠️  To enable REAL AI: Set GEMINI_API_KEY in Render dashboard.');
-    console.warn('⚠️  Get a free key at: https://aistudio.google.com/app/apikey');
-    console.warn('⚠️  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const claudeKey = process.env.ANTHROPIC_API_KEY;
+
+  if (openaiKey && openaiKey.length > 10 && openaiKey !== 'your_openai_api_key_here') {
+    console.log(`✅ OPENAI_API_KEY: configured (${openaiKey.substring(0, 7)}... for GPT-4o & DALL-E 3)`);
   } else {
-    console.log(`✅ GEMINI_API_KEY: configured (${geminiKey.substring(0, 6)}...)`);
+    console.warn('⚠️  OPENAI_API_KEY is not set. Get key at: https://platform.openai.com/api-keys');
   }
 
-  const mongoUri = process.env.MONGO_URI;
+  if (claudeKey && claudeKey.length > 10 && claudeKey !== 'your_claude_api_key_here') {
+    console.log(`✅ ANTHROPIC_API_KEY: configured (${claudeKey.substring(0, 7)}... for Claude 3.5/3.7)`);
+  } else {
+    console.warn('⚠️  ANTHROPIC_API_KEY is not set. Get key at: https://console.anthropic.com/settings/keys');
+  }
+
+  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
   if (!mongoUri || mongoUri.trim() === '' || mongoUri.includes('<')) {
-    console.warn('⚠️  MONGO_URI is NOT configured or still has placeholders!');
-    console.warn('⚠️  Set MONGO_URI in Render environment variables.\n');
+    console.warn('⚠️  MONGODB_URI / MONGO_URI is NOT configured or still has placeholders!');
+    console.warn('⚠️  Set MONGODB_URI in Render environment variables.\n');
   }
 
   // Connect to MongoDB Atlas (non-blocking)

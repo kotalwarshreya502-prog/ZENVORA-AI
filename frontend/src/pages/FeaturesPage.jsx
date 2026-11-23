@@ -43,7 +43,7 @@ export const FeaturesPage = () => {
       icon: <Bot size={24} className="text-brand-violet" />,
       title: 'AI Content Studio',
       desc: 'Generate multi-channel ad copy, captions, product descriptions, and marketing hooks engineered to match your target audience persona.',
-      badge: 'Gemini 1.5 Powered',
+      badge: 'GPT-4o & Claude Powered',
     },
     {
       category: 'seo',

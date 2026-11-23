@@ -30,7 +30,7 @@ export const CaptionGeneratorPage = () => {
   const [tone,           setTone]           = useState('Conversational & Engaging');
   const [length,         setLength]         = useState('medium');
   const [platform,       setPlatform]       = useState('Instagram');
-  const [selectedModel,  setSelectedModel]  = useState('gemini-2.0-flash');
+  const [selectedModel,  setSelectedModel]  = useState('gpt-4o-mini');
   const [isEnhancing,    setIsEnhancing]    = useState(false);
   const [loading,        setLoading]        = useState(false);
   const [copiedIndex,    setCopiedIndex]    = useState(null);

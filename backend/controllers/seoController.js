@@ -175,7 +175,7 @@ export const researchKeywords = async (req, res) => {
   try {
     const { seedKeywords, domain, targetRegion = 'Global' } = req.body;
     const userId = req.user?.id;
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || '';
+    const customApiKey = req.headers['x-openai-api-key'] || req.headers['x-anthropic-api-key'] || req.headers['x-gemini-api-key'] || req.body.openaiApiKey || req.body.anthropicApiKey || req.body.geminiApiKey || '';
 
     const { default: Orchestrator } = await import('../services/orchestratorService.js');
     const businessContext = await Orchestrator.getBusinessContext(userId);

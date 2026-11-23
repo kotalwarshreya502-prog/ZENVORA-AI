@@ -197,7 +197,7 @@ export const BrandGuidelinesPage = () => {
                 className="w-full text-sm rounded-lg border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-brand-violet/20"
               />
               <span className="text-[11px] text-slate-400 mt-1 block">
-                This prompt context is injected as system instructions for all Gemini AI generation calls.
+                This prompt context is injected as system instructions for all AI generation calls.
               </span>
             </div>
 

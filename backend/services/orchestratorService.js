@@ -16,7 +16,7 @@
  * 10. Automation Agent
  */
 
-import GeminiService from './geminiService.js';
+import AIProviderService from './aiProviderService.js';
 import { scrapeAndAnalyzeBusiness } from './websiteScraperService.js';
 import { research as webResearch } from './searchService.js';
 import { generatePosterPrompt } from './posterIntelligenceService.js';
@@ -70,7 +70,7 @@ class CentralIntelligenceOrchestrator {
     const searchQuery = query || topic;
     const baseResearch = await webResearch(searchQuery);
 
-    // Deep synthesis with Gemini
+    // Deep synthesis with Central AI Provider (Claude / OpenAI)
     const systemPrompt = `You are the ZENVORA Web Research & Market Intelligence Agent.
 Synthesize verified market intelligence, industry trends, and strategic opportunities for the brand.`;
 
@@ -90,7 +90,7 @@ Return a JSON object:
 }`;
 
     try {
-      const res = await GeminiService.callGemini(prompt, systemPrompt, customApiKey);
+      const res = await AIProviderService.callAI(prompt, systemPrompt, customApiKey);
       let parsed = {};
       if (res?.text) {
         const cleaned = res.text.replace(/```json\n?/gi, '').replace(/```\n?/gi, '').trim();
@@ -154,7 +154,7 @@ Return a JSON object:
   ]
 }`;
 
-    const res = await GeminiService.callGemini(
+    const res = await AIProviderService.callAI(
       prompt,
       'You are the ZENVORA Chief Marketing Strategy Agent. Output strict valid JSON only.',
       customApiKey
@@ -168,7 +168,7 @@ Return a JSON object:
   // 4. CONTENT GENERATION AGENT
   // ──────────────────────────────────────────────────────────────────────────
   async runContentGenerationAgent(params) {
-    return await GeminiService.generateMarketingContent(params);
+    return await AIProviderService.generateMarketingContent(params);
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -222,7 +222,7 @@ Return a JSON object:
   ]
 }`;
 
-    const res = await GeminiService.callGemini(
+    const res = await AIProviderService.callAI(
       prompt,
       'You are the ZENVORA Senior SEO Architecture Agent. Output strict valid JSON only.',
       customApiKey
@@ -276,7 +276,7 @@ Return a JSON object:
   ]
 }`;
 
-    const res = await GeminiService.callGemini(
+    const res = await AIProviderService.callAI(
       prompt,
       'You are the ZENVORA Campaign Operations Agent. Output strict valid JSON only.',
       customApiKey
@@ -308,7 +308,7 @@ Return a JSON object:
   "engagementTip": "1 practical tip to boost comment velocity"
 }`;
 
-    const res = await GeminiService.callGemini(
+    const res = await AIProviderService.callAI(
       prompt,
       'You are the ZENVORA Social Optimization Agent. Output strict valid JSON only.',
       customApiKey
@@ -343,7 +343,7 @@ Return a JSON object:
   ]
 }`;
 
-    const res = await GeminiService.callGemini(
+    const res = await AIProviderService.callAI(
       prompt,
       'You are the ZENVORA Performance Analytics Agent. Output strict valid JSON only.',
       customApiKey
@@ -381,7 +381,7 @@ Return a JSON object:
   "autonomousRecommendation": "Advice on scaling this workflow"
 }`;
 
-    const res = await GeminiService.callGemini(
+    const res = await AIProviderService.callAI(
       prompt,
       'You are the ZENVORA Master Marketing Automation Orchestrator. Output strict valid JSON only.',
       customApiKey

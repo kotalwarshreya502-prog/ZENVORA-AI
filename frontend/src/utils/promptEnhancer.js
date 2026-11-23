@@ -6,17 +6,17 @@
 
 // ── Shared AI Models Catalog ──────────────────────────────────────────────────
 export const TEXT_MODELS = [
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', badge: 'Fast & Smart', desc: 'Google next-gen flagship model with ultra-fast generation and high accuracy' },
-  { id: 'gemini-1.5-pro',   name: 'Gemini 1.5 Pro',   badge: 'Deep Reasoning', desc: 'Advanced reasoning, nuanced creative writing, and in-depth long-form copy' },
-  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', badge: 'Standard Fast', desc: 'Lightweight workhorse model for quick social updates and captions' },
+  { id: 'gpt-4o',           name: 'OpenAI GPT-4o',       badge: 'Flagship AI',   desc: 'Next-gen frontier reasoning model with highest fidelity marketing outputs' },
+  { id: 'claude-3-7-sonnet',name: 'Claude 3.7 Sonnet',   badge: 'Deep Strategy', desc: 'Anthropic hybrid reasoning model for nuance, brand voice, and long-form strategy' },
+  { id: 'claude-3-5-sonnet',name: 'Claude 3.5 Sonnet',   badge: 'High Precision',desc: 'Industry benchmark for marketing nuance and clear structured content' },
+  { id: 'gpt-4o-mini',      name: 'OpenAI GPT-4o Mini',  badge: 'Fast & Smart',  desc: 'Lightweight workhorse model for lightning-fast captions and copy' },
 ];
 
 export const IMAGE_MODELS = [
-  { id: 'flux',         name: 'FLUX.1 Schnell',     badge: 'Real-Time Pro', desc: 'State-of-the-art commercial advertising generator with 4K studio realism' },
-  { id: 'flux-realism', name: 'FLUX Realism',       badge: 'Cinematic 4K',  desc: 'Hyper-realistic textures, authentic commercial lighting, and depth of field' },
-  { id: 'imagen-3.0',   name: 'Google Imagen 3',    badge: 'DeepMind',      desc: 'Google DeepMind commercial visual generator with typography understanding' },
-  { id: 'dall-e-3',     name: 'OpenAI DALL-E 3',    badge: 'Creative Art',  desc: 'High-fidelity compositional generation for conceptual brand imagery' },
-  { id: 'turbo',        name: 'SD 3.5 Turbo',       badge: 'Ultra Fast',    desc: 'Rapid creative ideation with high-contrast vibrant visuals' },
+  { id: 'dall-e-3',     name: 'OpenAI DALL-E 3 HD', badge: 'Ultra Precision', desc: 'Photorealistic commercial visual generation with exact subject match' },
+  { id: 'flux',         name: 'FLUX.1 Schnell',     badge: 'Real-Time Pro',   desc: 'State-of-the-art commercial advertising generator with 4K studio realism' },
+  { id: 'flux-realism', name: 'FLUX Realism',       badge: 'Cinematic 4K',    desc: 'Hyper-realistic textures, authentic commercial lighting, and depth of field' },
+  { id: 'turbo',        name: 'SD 3.5 Turbo',       badge: 'Ultra Fast',      desc: 'Rapid creative ideation with high-contrast vibrant visuals' },
 ];
 
 // ── Smart Prompt Enhancers ────────────────────────────────────────────────────

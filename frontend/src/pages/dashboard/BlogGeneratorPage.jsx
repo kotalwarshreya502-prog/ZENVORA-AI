@@ -33,7 +33,7 @@ export const BlogGeneratorPage = () => {
     length: 'Comprehensive (1500+ words)',
   });
 
-  const [selectedModel, setSelectedModel] = useState('gemini-1.5-pro');
+  const [selectedModel, setSelectedModel] = useState('claude-3-5-sonnet');
   const [isEnhancing, setIsEnhancing]     = useState(false);
   const [loading, setLoading] = useState(false);
   const [blogOutput, setBlogOutput] = useState(null);

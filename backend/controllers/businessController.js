@@ -61,7 +61,7 @@ export const analyzeWebsite = async (req, res) => {
   try {
     const userId = req.user.id;
     const { websiteUrl } = req.body;
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || '';
+    const customApiKey = req.headers['x-openai-api-key'] || req.headers['x-anthropic-api-key'] || req.headers['x-gemini-api-key'] || req.body.openaiApiKey || req.body.anthropicApiKey || req.body.geminiApiKey || '';
 
     if (!websiteUrl || !websiteUrl.trim()) {
       return errorResponse(res, 'Please provide a valid website URL to analyze', 400);

@@ -72,7 +72,7 @@ export const BillingPage = () => {
         'Unlimited scheduled posts',
         'Unlimited social channels & client workspaces',
         'Automated white-label PDF reports',
-        'Custom Gemini 1.5 fine-tuned voices',
+        'Custom GPT-4o & Claude fine-tuned voices',
         'Dedicated account strategist',
       ],
       current: false,
@@ -137,7 +137,7 @@ export const BillingPage = () => {
               <span className="text-sm text-slate-400">/ month</span>
             </div>
             <p className="text-xs text-slate-300 mt-3 leading-relaxed">
-              Equipped with Gemini 1.5 multi-channel marketing models, autonomous brand memory, and programmatic SEO modules.
+              Equipped with OpenAI GPT-4o and Claude 3.5 multi-channel marketing models, autonomous brand memory, and programmatic SEO modules.
             </p>
           </div>
 

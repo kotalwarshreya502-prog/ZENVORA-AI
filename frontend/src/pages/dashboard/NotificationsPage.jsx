@@ -46,7 +46,7 @@ export const NotificationsPage = () => {
     {
       id: 'nt-4',
       title: 'Monthly AI Words Allocation Restored',
-      message: 'Your Professional Growth plan quota has refreshed with 250,000 high-speed Gemini 1.5 tokens.',
+      message: 'Your Professional Growth plan quota has refreshed with 250,000 high-speed GPT-4o & Claude tokens.',
       category: 'system',
       read: true,
       timestamp: '3 days ago',

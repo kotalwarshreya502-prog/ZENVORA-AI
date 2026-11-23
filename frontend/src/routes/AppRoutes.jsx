@@ -39,6 +39,7 @@ import SettingsPage from '../pages/dashboard/SettingsPage';
 import ResearchAssistantPage from '../pages/dashboard/ResearchAssistantPage';
 import CompetitorAnalysisPage from '../pages/dashboard/CompetitorAnalysisPage';
 import GenerationHistoryPage from '../pages/dashboard/GenerationHistoryPage';
+import AiSettingsPage from '../pages/dashboard/AiSettingsPage';
 
 export const AppRoutes = () => {
   return (
@@ -116,6 +117,7 @@ export const AppRoutes = () => {
           <Route path="research" element={<ResearchAssistantPage />} />
           <Route path="competitor" element={<CompetitorAnalysisPage />} />
           <Route path="history" element={<GenerationHistoryPage />} />
+          <Route path="ai-settings" element={<AiSettingsPage />} />
         </Route>
 
         {/* Fallback Catch-all Route */}

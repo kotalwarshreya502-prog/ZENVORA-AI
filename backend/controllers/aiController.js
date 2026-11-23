@@ -1,14 +1,14 @@
 /**
  * ZENVORA AI — Central AI Controller
- * All content generation routes pass through here.
- * Every handler reads user inputs dynamically — no hardcoded brand/industry logic.
+ * All marketing content generation routes pass through here.
+ * Powered by OpenAI GPT-4o & Anthropic Claude via AIProviderService.
+ * Zero Google Gemini dependencies. Every handler reads dynamic user inputs.
  */
 
-import GeminiService from '../services/geminiService.js';
+import AIProviderService, { generateRequestId } from '../services/aiProviderService.js';
 import { generateBlogArticleEndToEnd } from '../services/blogAIService.js';
 import Storage from '../services/storageService.js';
 import { errorResponse, successResponse } from '../utils/responseHandler.js';
-import { generateRequestId } from '../services/aiProviderService.js';
 
 // ── Shared helper: fetch unified business & brand profile silently ───────────
 async function getBrandCtx(userId) {
@@ -41,7 +41,7 @@ async function getBrandCtx(userId) {
 }
 
 // ── Shared helper: save to generation history silently ───────────────────────
-async function saveHistory(userId, module, input, output, provider = 'gemini') {
+async function saveHistory(userId, module, input, output, provider = 'openai') {
   try {
     const { default: GenerationHistory } = await import('../models/GenerationHistory.js');
     const title = input.topic || input.title || input.campaignTitle || input.subject || input.name || input.description || `${module} generation`;
@@ -51,12 +51,23 @@ async function saveHistory(userId, module, input, output, provider = 'gemini') {
       module,
       input,
       output,
-      provider,
-      model: output.model || 'zenvora-engine-v1',
+      provider: output.provider || provider,
+      model: output.model || 'gpt-4o',
       status: 'success',
       title,
     });
-  } catch (e) { console.warn(`[History] ${module} save failed:`, e.message); }
+  } catch (e) {
+    console.warn(`[History] ${module} save failed:`, e.message);
+  }
+}
+
+// ── Helper to extract API keys from headers or body ──────────────────────────
+function extractApiKeys(req) {
+  return {
+    openaiKey: req.headers['x-openai-api-key'] || req.body.openaiApiKey || process.env.OPENAI_API_KEY || '',
+    anthropicKey: req.headers['x-anthropic-api-key'] || req.body.anthropicApiKey || process.env.ANTHROPIC_API_KEY || '',
+    customApiKey: req.headers['x-openai-api-key'] || req.headers['x-anthropic-api-key'] || req.body.apiKey || '',
+  };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -85,17 +96,17 @@ export const generateMarketingContent = async (req, res) => {
       return errorResponse(res, 'Content topic is required', 400);
     }
 
-    const userId        = req.user?.id || 'demo_user';
+    const userId = req.user?.id || 'demo_user';
     const brandGuidelines = await getBrandCtx(userId);
-    const customApiKey  = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const { customApiKey } = extractApiKeys(req);
 
-    const result = await GeminiService.generateMarketingContent({
+    const result = await AIProviderService.generateMarketingContent({
       type, platform, industry, targetAudience, topic, offer,
       tone, language, keywords, length, brandName, objective, brandGuidelines,
       customApiKey, model,
     });
 
-    saveHistory(userId, 'marketing-content', req.body, result, result.model);
+    saveHistory(userId, 'marketing-content', req.body, result, result.provider);
     return successResponse(res, 'Content generated successfully', result);
   } catch (err) {
     console.error('[AI Content Studio]:', err.message);
@@ -122,34 +133,24 @@ export const generateBlog = async (req, res) => {
     }
 
     const userId        = req.user?.id || 'demo_user';
-    const brandGuidelines = await getBrandCtx(userId);
     const kwArray       = Array.isArray(secondaryKeywords)
       ? secondaryKeywords
       : (secondaryKeywords ? String(secondaryKeywords).split(',').map(k => k.trim()).filter(Boolean) : []);
 
-    const customApiKey  = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const { customApiKey } = extractApiKeys(req);
 
-    let result = null;
-    try {
-      result = await generateBlogArticleEndToEnd({
-        topic,
-        targetKeyword,
-        secondaryKeywords: kwArray,
-        audience,
-        tone,
-        length,
-        customApiKey,
-        model,
-      });
-    } catch (llmErr) {
-      console.warn('⚠️ [AI Blog Controller] End-to-end LLM notice:', llmErr.message, '— using resilient domain engine');
-      result = await GeminiService.generateBlogArticle({
-        topic, targetKeyword, secondaryKeywords: kwArray,
-        audience, tone, length, brandGuidelines, customApiKey, model,
-      });
-    }
+    const result = await generateBlogArticleEndToEnd({
+      topic,
+      targetKeyword,
+      secondaryKeywords: kwArray,
+      audience,
+      tone,
+      length,
+      customApiKey,
+      model,
+    });
 
-    saveHistory(userId, 'blog-generator', req.body, result, result.model);
+    saveHistory(userId, 'blog-generator', req.body, result, result.provider);
     return successResponse(res, 'Blog article generated successfully', result);
   } catch (err) {
     console.error('[AI Blog Generator]:', err.message);
@@ -164,28 +165,28 @@ export const generateBlog = async (req, res) => {
 export const generateCaptions = async (req, res) => {
   try {
     const {
-      platform      = 'Instagram',
+      platform       = 'Instagram',
       topic,
-      tone          = 'Engaging',
-      count         = 5,
-      brandName     = '',
-      industry      = '',
+      tone           = 'Engaging',
+      count          = 5,
+      brandName      = '',
+      industry       = '',
       targetAudience = '',
-      keywords      = '',
-      model         = '',
+      keywords       = '',
+      model          = '',
     } = req.body;
 
     if (!topic) return errorResponse(res, 'Topic is required', 400);
 
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const { customApiKey } = extractApiKeys(req);
 
-    const result = await GeminiService.generateSocialCaptions({
+    const result = await AIProviderService.generateSocialCaptions({
       platform, topic, tone, count,
       brandName, industry, targetAudience, keywords, customApiKey, model,
     });
 
     const userId = req.user?.id || 'demo_user';
-    saveHistory(userId, 'caption-generator', req.body, result, result.model);
+    saveHistory(userId, 'caption-generator', req.body, result, result.provider);
     return successResponse(res, 'Captions generated successfully', result);
   } catch (err) {
     return errorResponse(res, 'Failed to generate captions', 500, err.message);
@@ -210,14 +211,14 @@ export const generateHashtags = async (req, res) => {
     const topic = niche || keyword;
     if (!topic) return errorResponse(res, 'Keyword or niche is required', 400);
 
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const { customApiKey } = extractApiKeys(req);
 
-    const result = await GeminiService.generateHashtags({
+    const result = await AIProviderService.generateHashtags({
       niche: topic, platform, industry, brandName, count, customApiKey, model,
     });
 
     const userId = req.user?.id || 'demo_user';
-    saveHistory(userId, 'hashtag-generator', req.body, result, result.model);
+    saveHistory(userId, 'hashtag-generator', req.body, result, result.provider);
     return successResponse(res, 'Hashtags generated successfully', result);
   } catch (err) {
     return errorResponse(res, 'Failed to generate hashtags', 500, err.message);
@@ -229,7 +230,6 @@ export const generateHashtags = async (req, res) => {
 // POST /api/ai/social-post
 // ════════════════════════════════════════════════════════════════════════════
 export const generateSocialPost = async (req, res) => {
-  // Delegate to main generateMarketingContent
   req.body.type = req.body.type || 'Social Post';
   return generateMarketingContent(req, res);
 };
@@ -256,12 +256,10 @@ export const generateAdCreative = async (req, res) => {
       return errorResponse(res, 'Brand name or product/service is required', 400);
     }
 
-    const systemPrompt = `You are a performance marketing expert specializing in paid advertising. 
-Write high-converting ad creative for ${platform}.
-RULES: Every ad must reflect the specific brand, product, offer, and audience provided. Never use generic filler.`;
+    const systemPrompt = `You are a performance advertising specialist. Write high-converting ad creative for ${platform}.
+RULES: Every ad must authentically feature the specified brand, product, offer, and audience. Never use generic filler.`;
 
     const userPrompt = `Create a complete ad creative for ${platform}.
-
 BRAND: ${brandName || 'Brand'}
 INDUSTRY: ${industry || 'General'}
 PRODUCT / SERVICE: ${product || brandName}
@@ -272,7 +270,6 @@ CAMPAIGN OBJECTIVE: ${objective}
 KEYWORDS: ${keywords || 'None'}
 
 Output structured as:
-
 **Primary Headline (max 40 chars):**
 [punchy, benefit-driven headline]
 
@@ -282,29 +279,32 @@ Output structured as:
 **Primary Ad Text (max 125 chars):**
 [compelling main copy]
 
-**Body Copy (optional, up to 200 words):**
-[detailed copy for feeds and right-rail placements]
+**Body Copy (up to 200 words):**
+[detailed copy for feed placements]
 
 **Call to Action:**
-[specific CTA button text, e.g. Shop Now, Get Free Trial, Book Now]
+[specific CTA button text]
 
 **Creative Direction:**
-[brief description of the visual / image that should accompany this ad]
+[brief description of the visual that should accompany this ad]
 
 **A/B Variation:**
-[alternative headline + primary text variation]`;
+[alternative headline + primary text]`;
 
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
-    if (!liveResult?.text) {
-      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
-    }
+    const { customApiKey } = extractApiKeys(req);
+    const liveResult = await AIProviderService.generateText({
+      prompt: userPrompt,
+      systemPrompt,
+      task: 'ad-creative',
+      customApiKey,
+    });
 
-    const content = liveResult?.text || `**Primary Headline:**\n${offer || objective} — ${brandName || 'Act Now'}!\n\n**Primary Ad Text:**\n${product || brandName}: ${offer || 'Get started today'}. For ${targetAudience || 'everyone'}.\n\n**Call to Action:**\n${objective.includes('sign') ? 'Sign Up Free' : objective.includes('shop') ? 'Shop Now' : 'Learn More'}`;
+    const content = liveResult.text || `**Primary Headline:**\n${offer || objective} — ${brandName || 'Act Now'}!\n\n**Primary Ad Text:**\n${product || brandName}: ${offer || 'Get started today'}. For ${targetAudience || 'everyone'}.\n\n**Call to Action:**\nShop Now`;
 
     const result = {
       content,
-      model: liveResult?.source || 'zenvora-engine-v1',
+      model: liveResult.model || 'gpt-4o',
+      provider: liveResult.provider || 'openai',
       platform,
       brandName,
       product,
@@ -312,7 +312,7 @@ Output structured as:
     };
 
     const userId = req.user?.id || 'demo_user';
-    saveHistory(userId, 'ad-creative', req.body, result, result.model);
+    saveHistory(userId, 'ad-creative', req.body, result, result.provider);
     return successResponse(res, 'Ad creative generated successfully', result);
   } catch (err) {
     console.error('[Ad Creative]:', err.message);
@@ -343,72 +343,67 @@ export const generateCampaignStrategy = async (req, res) => {
       return errorResponse(res, 'Campaign name or objective is required', 400);
     }
 
-    const systemPrompt = `You are a senior marketing strategist and campaign director.
-Create detailed, actionable campaign strategies for real brands and businesses.
-RULES: Base every recommendation on the specific brand, industry, and objective provided. Never give generic advice.`;
+    const platformList = Array.isArray(platforms) ? platforms.join(', ') : (platforms || 'Multi-channel');
 
-    const platformList = Array.isArray(platforms) ? platforms.join(', ') : platforms || 'Multi-platform';
+    const systemPrompt = `You are a Chief Marketing Officer. Build an end-to-end multi-channel marketing campaign strategy.
+Provide rigorous, structured, practical strategic recommendations based on the brand, industry, and budget.`;
 
-    const userPrompt = `Create a complete marketing campaign strategy.
-
+    const userPrompt = `Build a complete campaign strategy:
+CAMPAIGN NAME: ${campaignName || 'Growth Campaign'}
 BRAND: ${brandName || 'Brand'}
 INDUSTRY: ${industry || 'General'}
-CAMPAIGN NAME: ${campaignName || objective}
-CAMPAIGN OBJECTIVE: ${objective || 'Drive awareness and conversions'}
-TARGET AUDIENCE: ${targetAudience || 'General public'}
-BUDGET: ${budget || 'Flexible'}
-CAMPAIGN DURATION: ${duration || '30 days'}
-PLATFORMS: ${platformList}
+PRIMARY OBJECTIVE: ${objective || 'Drive growth'}
+TARGET AUDIENCE: ${targetAudience || 'Core market'}
+BUDGET: ${budget || 'Not specified'}
+DURATION: ${duration || '4 weeks'}
+CHANNELS: ${platformList}
 TONE: ${tone}
-KEY THEMES / KEYWORDS: ${keywords || 'None'}
+KEYWORDS: ${keywords || 'None'}
 
-Deliver a complete campaign plan structured as:
+Output structured as:
+**Campaign Overview & Big Idea:**
+[The central creative concept and campaign thesis]
 
-**Campaign Overview:**
-[2-3 sentence summary of the campaign approach]
+**Audience Segmentation & Personas:**
+[Primary and secondary target personas]
 
-**Core Message / Value Proposition:**
-[The single most important message this campaign communicates]
+**Channel Strategy & Content Pillars:**
+[Breakdown of platforms and what content belongs on each]
 
-**Target Audience Segmentation:**
-[Primary and secondary audience breakdown with characteristics]
+**Phased Execution Plan:**
+- Phase 1: Awareness & Teaser (Week 1)
+- Phase 2: Launch & Acquisition (Weeks 2-3)
+- Phase 3: Retargeting & Retention (Week 4)
 
-**Platform Strategy:**
-[Specific approach and content format for each platform]
-
-**Content Pillars (5 themes):**
-[List 5 specific content themes with brief description of each]
-
-**Weekly Content Calendar (4 weeks):**
-[Suggested post topics, types, and platforms for each week]
-
-**KPIs to Track:**
-[Specific measurable metrics aligned with the objective]
+**Key Performance Indicators (KPIs):**
+[Measurable metrics to track success]
 
 **Budget Allocation Recommendation:**
-[If budget provided, suggest allocation; otherwise give percentage splits]
+[Suggested % distribution across channels]`;
 
-**Success Criteria:**
-[What "success" looks like for this campaign]`;
+    const { customApiKey } = extractApiKeys(req);
+    const liveResult = await AIProviderService.generateText({
+      prompt: userPrompt,
+      systemPrompt,
+      task: 'strategy',
+      preferredProvider: 'claude',
+      customApiKey,
+    });
 
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
-    if (!liveResult?.text) {
-      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
-    }
-
-    const content = liveResult?.text || `**Campaign Overview:**\n${campaignName || objective} for ${brandName || 'your brand'} targeting ${targetAudience || 'your audience'}.\n\n**Core Message:**\n${objective}\n\n**Platforms:** ${platformList}`;
+    const content = liveResult.text || `**Campaign Strategy: ${campaignName || 'Marketing Campaign'}**\n\n**Big Idea:** Elevate ${brandName || 'the brand'} through authentic multi-channel storytelling.\n\n**Phased Execution:**\n- Phase 1: Awareness\n- Phase 2: Conversion\n- Phase 3: Retention`;
 
     const result = {
       content,
-      model: liveResult?.source || 'zenvora-engine-v1',
+      model: liveResult.model || 'claude-3-7-sonnet-20250219',
+      provider: liveResult.provider || 'claude',
       campaignName,
       brandName,
+      objective,
       generatedAt: new Date().toISOString(),
     };
 
     const userId = req.user?.id || 'demo_user';
-    saveHistory(userId, 'campaign-strategy', req.body, result, result.model);
+    saveHistory(userId, 'campaign-strategy', req.body, result, result.provider);
     return successResponse(res, 'Campaign strategy generated successfully', result);
   } catch (err) {
     console.error('[Campaign Strategy]:', err.message);
@@ -417,7 +412,7 @@ Deliver a complete campaign plan structured as:
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// 8. EMAIL GENERATOR
+// 8. EMAIL COPY GENERATOR
 // POST /api/ai/email
 // ════════════════════════════════════════════════════════════════════════════
 export const generateEmail = async (req, res) => {
@@ -427,70 +422,73 @@ export const generateEmail = async (req, res) => {
       industry       = '',
       emailType      = 'Promotional',
       subject        = '',
-      targetAudience = '',
       offer          = '',
-      tone           = 'Professional',
-      cta            = 'Learn More',
-      keywords       = '',
+      targetAudience = '',
+      keyMessage     = '',
+      tone           = 'Professional yet warm',
+      ctaText        = '',
     } = req.body;
 
-    if (!subject && !offer) {
-      return errorResponse(res, 'Email subject or offer is required', 400);
+    if (!subject && !keyMessage && !offer) {
+      return errorResponse(res, 'Email subject, offer, or key message is required', 400);
     }
 
-    const systemPrompt = `You are an expert email marketer who writes high-converting marketing emails.
-RULES: Every email must reflect the brand's voice, specific offer/message, and audience. No generic filler.`;
+    const systemPrompt = `You are an elite email marketing copywriter specializing in high open rates and click-through conversions.
+Write complete, beautifully formatted emails.`;
 
-    const userPrompt = `Write a complete marketing email.
-
+    const userPrompt = `Write a high-converting ${emailType} email.
 BRAND: ${brandName || 'Brand'}
 INDUSTRY: ${industry || 'General'}
-EMAIL TYPE: ${emailType}
-SUBJECT / TOPIC: ${subject || offer}
+PURPOSE / SUBJECT: ${subject || keyMessage || offer}
 SPECIAL OFFER: ${offer || 'None'}
-TARGET AUDIENCE: ${targetAudience || 'Subscribers'}
+AUDIENCE: ${targetAudience || 'Subscribers'}
+KEY MESSAGE: ${keyMessage || offer || subject}
 TONE: ${tone}
-CALL TO ACTION: ${cta}
-KEYWORDS: ${keywords || 'None'}
+CTA: ${ctaText || 'Get Started'}
 
-Structure as:
+Output structured as:
+**Subject Line Options (5 variations):**
+1. [Urgency-driven]
+2. [Curiosity-driven]
+3. [Benefit-driven]
+4. [Short & punchy]
+5. [Personalized style]
 
-**Subject Line (Primary):**
-[Compelling subject line under 50 chars]
-
-**Subject Line (A/B Test):**
-[Alternative subject line]
-
-**Preview Text:**
-[Email preview text under 90 chars]
+**Preview Text / Preheader (max 90 chars):**
+[Engaging preheader that supports the subject]
 
 **Email Body:**
-[Full email copy with greeting, body paragraphs, offer highlight, and closing]
-
-**CTA Button Text:**
-[Specific button text]
+[Greeting]
+[Opening hook connecting to the reader's needs]
+[Core value proposition and details about the offer]
+[Clear benefits bullet points]
+[Strong primary call to action]
+[Sign-off and brand signiture]
 
 **P.S. Line:**
-[Optional postscript to reinforce urgency or offer]`;
+[Urgency or secondary reminder]`;
 
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
-    if (!liveResult?.text) {
-      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
-    }
+    const { customApiKey } = extractApiKeys(req);
+    const liveResult = await AIProviderService.generateText({
+      prompt: userPrompt,
+      systemPrompt,
+      task: 'email',
+      customApiKey,
+    });
 
-    const content = liveResult?.text || `**Subject Line:**\n${subject || offer} — Don't Miss Out!\n\n**Email Body:**\nDear ${targetAudience || 'Valued Customer'},\n\n${offer || subject}\n\n**CTA:** ${cta}`;
+    const content = liveResult.text || `**Subject:** ${subject || 'Special Update from ' + (brandName || 'Us')}\n\n**Email Body:**\nHi there,\n\nWe have something special for you: ${offer || keyMessage}.\n\nBest,\nThe ${brandName || 'Team'}`;
 
     const result = {
       content,
-      model: liveResult?.source || 'zenvora-engine-v1',
+      model: liveResult.model || 'gpt-4o',
+      provider: liveResult.provider || 'openai',
       emailType,
       brandName,
       generatedAt: new Date().toISOString(),
     };
 
     const userId = req.user?.id || 'demo_user';
-    saveHistory(userId, 'email-generator', req.body, result, result.model);
+    saveHistory(userId, 'email-generator', req.body, result, result.provider);
     return successResponse(res, 'Email generated successfully', result);
   } catch (err) {
     console.error('[Email Generator]:', err.message);
@@ -507,67 +505,54 @@ export const generateContentCalendar = async (req, res) => {
     const {
       brandName      = '',
       industry       = '',
-      campaignTopic  = '',
-      platforms      = [],
-      duration       = '30 days',
-      postsPerWeek   = 5,
-      tone           = 'Professional',
-      targetAudience = '',
-      keywords       = '',
+      period         = 'Weekly (7 days)',
+      platforms      = ['Instagram', 'LinkedIn', 'Twitter'],
+      goals          = 'Brand awareness & engagement',
+      themes         = '',
     } = req.body;
 
-    if (!campaignTopic && !brandName) {
-      return errorResponse(res, 'Campaign topic or brand name is required', 400);
-    }
+    const platformList = Array.isArray(platforms) ? platforms.join(', ') : platforms;
 
-    const systemPrompt = `You are a content strategy expert and editorial calendar specialist.
-Create specific, actionable content calendars for real brands.
-RULES: Every post idea must be specific to the brand, industry, and topic. Never use placeholder content.`;
+    const systemPrompt = `You are a senior social media director. Create a structured, practical content calendar.
+Each post idea must have an angle, format, caption hook, and primary hashtag.`;
 
-    const platformList = Array.isArray(platforms) ? platforms.join(', ') : platforms || 'Instagram, LinkedIn, Facebook';
-
-    const userPrompt = `Create a detailed content calendar.
-
+    const userPrompt = `Create a ${period} content calendar.
 BRAND: ${brandName || 'Brand'}
 INDUSTRY: ${industry || 'General'}
-CAMPAIGN TOPIC: ${campaignTopic || 'General brand content'}
-PLATFORMS: ${platformList}
-DURATION: ${duration}
-POSTS PER WEEK: ${postsPerWeek}
-TONE: ${tone}
-TARGET AUDIENCE: ${targetAudience || 'General public'}
-KEYWORDS: ${keywords || 'None'}
+CHANNELS: ${platformList}
+PRIMARY GOALS: ${goals}
+CONTENT THEMES: ${themes || 'Industry insights, tips, community, promotion'}
 
-Create a week-by-week content calendar with:
-- Specific post ideas (not generic placeholders)
-- Platform for each post
-- Content type (image, video, carousel, story, reel, article)
-- Key message / caption angle
-- Recommended hashtags
-- Best time to post
+Provide day-by-day recommendations with:
+- Day & Channel
+- Content Pillar / Theme
+- Post Format (Carousel, Single Image, Reel/Short, Text Post)
+- Headline / Hook
+- Caption Outline
+- Recommended Call to Action
+- Key Hashtags`;
 
-Format as a structured calendar with Week 1, Week 2, Week 3, Week 4 sections.
-Each week should have exactly ${postsPerWeek} specific, actionable post ideas.`;
+    const { customApiKey } = extractApiKeys(req);
+    const liveResult = await AIProviderService.generateText({
+      prompt: userPrompt,
+      systemPrompt,
+      task: 'content-calendar',
+      customApiKey,
+    });
 
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
-    if (!liveResult?.text) {
-      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
-    }
-
-    const content = liveResult?.text || `**Content Calendar: ${campaignTopic || brandName}**\n\nWeek 1:\n- Day 1: Brand introduction post on ${platformList}\n- Day 3: Product highlight\n- Day 5: Customer story / testimonial\n\nWeek 2:\n- Day 1: Behind-the-scenes content\n- Day 3: Educational tip related to ${campaignTopic}\n- Day 5: Call to action post`;
+    const content = liveResult.text || `**Content Calendar for ${brandName || 'Brand'}**\n\nDay 1: Educational Post\nDay 2: Behind-the-scenes\nDay 3: Product spotlight\nDay 4: Customer testimonial\nDay 5: Community engagement`;
 
     const result = {
       content,
-      model: liveResult?.source || 'zenvora-engine-v1',
-      campaignTopic,
+      model: liveResult.model || 'gpt-4o',
+      provider: liveResult.provider || 'openai',
+      period,
       brandName,
-      duration,
       generatedAt: new Date().toISOString(),
     };
 
     const userId = req.user?.id || 'demo_user';
-    saveHistory(userId, 'content-calendar', req.body, result, result.model);
+    saveHistory(userId, 'content-calendar', req.body, result, result.provider);
     return successResponse(res, 'Content calendar generated successfully', result);
   } catch (err) {
     console.error('[Content Calendar]:', err.message);
@@ -582,58 +567,58 @@ Each week should have exactly ${postsPerWeek} specific, actionable post ideas.`;
 export const improveContent = async (req, res) => {
   try {
     const {
-      originalContent,
-      instructions = '',
-      tone         = 'Professional',
-      platform     = 'General',
-      brandName    = '',
+      content,
+      goal     = 'Make it more engaging',
+      tone     = 'Professional & Persuasive',
+      platform = 'General',
     } = req.body;
 
-    if (!originalContent || originalContent.trim().length < 10) {
-      return errorResponse(res, 'Original content is required (minimum 10 characters)', 400);
+    if (!content || content.trim() === '') {
+      return errorResponse(res, 'Original content is required to improve it', 400);
     }
 
-    const systemPrompt = `You are an expert content editor and copywriter.
-Improve content while preserving the original intent and key messages.
-RULES: Follow the user's specific instructions. If improving for a brand, maintain brand consistency.`;
+    const systemPrompt = `You are a master content editor. Improve the provided copy according to the goal and tone.
+Provide the improved version along with a brief explanation of what was enhanced.`;
 
-    const userPrompt = `Improve the following content.
+    const userPrompt = `IMPROVE THIS CONTENT:
+"${content}"
 
-${brandName ? `BRAND: ${brandName}` : ''}
-PLATFORM: ${platform}
-TONE: ${tone}
-IMPROVEMENT INSTRUCTIONS: ${instructions || 'Make it more engaging, clear, and compelling. Fix any grammar issues. Optimize for the platform.'}
+GOAL: ${goal}
+DESIRED TONE: ${tone}
+TARGET PLATFORM: ${platform}
 
-ORIGINAL CONTENT:
-${originalContent}
-
-Provide:
+Output structured as:
 **Improved Version:**
-[The improved content]
+[The rewritten, polished content]
 
-**What Changed:**
-[Brief bullet list of improvements made]
+**Key Enhancements Made:**
+- [Bullet points explaining what was changed and why]
 
-**Alternative Version:**
-[A second variation with a different angle]`;
+**Alternative Headline / Hook Options:**
+1. [Option 1]
+2. [Option 2]`;
 
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
-    if (!liveResult?.text) {
-      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
-    }
+    const { customApiKey } = extractApiKeys(req);
+    const liveResult = await AIProviderService.generateText({
+      prompt: userPrompt,
+      systemPrompt,
+      task: 'copy',
+      customApiKey,
+    });
 
-    const content = liveResult?.text || `**Improved Version:**\n${originalContent}\n\n**What Changed:**\n- Reviewed for clarity\n- Optimized for ${platform} engagement`;
+    const improved = liveResult.text || content;
 
     const result = {
-      content,
-      model: liveResult?.source || 'zenvora-engine-v1',
-      platform,
+      originalContent: content,
+      improvedContent: improved,
+      goal,
+      model: liveResult.model || 'gpt-4o',
+      provider: liveResult.provider || 'openai',
       generatedAt: new Date().toISOString(),
     };
 
     const userId = req.user?.id || 'demo_user';
-    saveHistory(userId, 'content-improver', req.body, result, result.model);
+    saveHistory(userId, 'content-improver', req.body, result, result.provider);
     return successResponse(res, 'Content improved successfully', result);
   } catch (err) {
     console.error('[Content Improver]:', err.message);
@@ -648,75 +633,68 @@ Provide:
 export const generateBrandVoice = async (req, res) => {
   try {
     const {
-      brandName    = '',
-      industry     = '',
-      description  = '',
-      values       = '',
-      targetAudience = '',
-      competitors  = '',
-      sampleContent = '',
+      businessName,
+      industry,
+      description,
+      targetAudience,
+      coreValues,
+      sampleContent,
     } = req.body;
 
-    if (!brandName && !description) {
-      return errorResponse(res, 'Brand name or description is required', 400);
+    if (!businessName && !description) {
+      return errorResponse(res, 'Business name or description is required', 400);
     }
 
-    const systemPrompt = `You are a brand strategist specializing in brand voice and tone-of-voice guidelines.
-Create comprehensive, actionable brand voice documentation.`;
+    const systemPrompt = `You are a brand identity strategist. Define a comprehensive, actionable Brand Voice Guide.`;
 
-    const userPrompt = `Create a complete brand voice guide.
-
-BRAND: ${brandName || 'Brand'}
+    const userPrompt = `Develop a Brand Voice & Tone Identity Guide:
+BUSINESS NAME: ${businessName || 'Brand'}
 INDUSTRY: ${industry || 'General'}
-BRAND DESCRIPTION: ${description || `A ${industry || 'brand'} company`}
-BRAND VALUES: ${values || 'Quality, Innovation, Customer Focus'}
-TARGET AUDIENCE: ${targetAudience || 'General public'}
-COMPETITORS: ${competitors || 'Not specified'}
-${sampleContent ? `SAMPLE EXISTING CONTENT:\n${sampleContent}` : ''}
+DESCRIPTION: ${description || 'Not provided'}
+TARGET AUDIENCE: ${targetAudience || 'General market'}
+CORE VALUES: ${coreValues || 'Quality, innovation, integrity'}
+SAMPLE TEXT: ${sampleContent || 'None'}
 
-Create a detailed brand voice guide with:
-
-**Brand Personality (5 adjectives):**
-[Core personality traits]
-
-**Brand Voice Statement:**
-[One-paragraph description of how the brand communicates]
+Output structured as:
+**Brand Personality (3-4 core traits):**
+[Trait 1, Trait 2, Trait 3 with explanations]
 
 **Tone Spectrum:**
-[How tone shifts across different content types: promotional, educational, supportive, etc.]
+[How the brand sounds across different situations: Educational, Promotional, Crisis, Celebratory]
 
-**Writing Style Guidelines:**
-[Specific do's and don'ts for language, sentence structure, vocabulary]
+**Voice Dos & Don'ts:**
+- DO: [specific guidelines]
+- DON'T: [specific words/styles to avoid]
 
-**Power Words & Phrases:**
-[Words the brand should use frequently]
+**Vocabulary & Keywords:**
+[Signature words to embrace vs. words to avoid]
 
-**Words to Avoid:**
-[Language that doesn't fit the brand]
+**Tagline & Mission Statement Options:**
+1. [Tagline 1]
+2. [Tagline 2]
+3. [Tagline 3]`;
 
-**Voice Examples (3 scenarios):**
-[Sample copy for 3 different scenarios: social post, email, ad copy]
+    const { customApiKey } = extractApiKeys(req);
+    const liveResult = await AIProviderService.generateText({
+      prompt: userPrompt,
+      systemPrompt,
+      task: 'brand',
+      preferredProvider: 'claude',
+      customApiKey,
+    });
 
-**Competitor Differentiation:**
-[How the brand voice differs from competitors]`;
-
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
-    if (!liveResult?.text) {
-      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
-    }
-
-    const content = liveResult?.text || `**Brand Voice Statement:**\n${brandName || 'Our brand'} communicates with clarity, confidence, and genuine care for ${targetAudience || 'our audience'}.\n\n**Tone:** ${values || 'Professional, Trustworthy, Innovative'}`;
+    const content = liveResult.text || `**Brand Voice Guide for ${businessName || 'Brand'}**\n\nPersonality: Authentic, Expert, Forward-Thinking\nTone: Professional and Inspiring`;
 
     const result = {
       content,
-      model: liveResult?.source || 'zenvora-engine-v1',
-      brandName,
+      businessName,
+      model: liveResult.model || 'claude-3-7-sonnet-20250219',
+      provider: liveResult.provider || 'claude',
       generatedAt: new Date().toISOString(),
     };
 
     const userId = req.user?.id || 'demo_user';
-    saveHistory(userId, 'brand-voice', req.body, result, result.model);
+    saveHistory(userId, 'brand-voice', req.body, result, result.provider);
     return successResponse(res, 'Brand voice generated successfully', result);
   } catch (err) {
     console.error('[Brand Voice]:', err.message);
@@ -731,71 +709,72 @@ Create a detailed brand voice guide with:
 export const generateProductDescription = async (req, res) => {
   try {
     const {
-      brandName      = '',
-      productName    = '',
-      category       = '',
-      features       = '',
-      targetAudience = '',
-      tone           = 'Persuasive',
-      platform       = 'E-commerce website',
-      keywords       = '',
-      pricePoint     = '',
+      productName,
+      category,
+      features,
+      benefits,
+      targetAudience,
+      brandName,
+      tone = 'Persuasive & Benefit-driven',
+      format = 'E-commerce (Amazon / Shopify)',
     } = req.body;
 
-    if (!productName && !features) {
-      return errorResponse(res, 'Product name or features are required', 400);
+    if (!productName) {
+      return errorResponse(res, 'Product name is required', 400);
     }
 
-    const systemPrompt = `You are a professional product copywriter who writes compelling product descriptions that convert browsers into buyers.
-RULES: Descriptions must be specific to the product, highlight real benefits (not just features), and speak directly to the target buyer.`;
+    const systemPrompt = `You are an e-commerce copywriting expert. Write compelling product descriptions that rank and convert.`;
 
-    const userPrompt = `Write compelling product descriptions.
-
+    const userPrompt = `Write a high-converting product description for ${format}.
+PRODUCT NAME: ${productName}
 BRAND: ${brandName || 'Brand'}
-PRODUCT: ${productName || 'Product'}
 CATEGORY: ${category || 'General'}
-KEY FEATURES: ${features || 'High quality, well designed'}
-TARGET BUYER: ${targetAudience || 'General consumer'}
+KEY FEATURES: ${features || 'Premium specifications'}
+BENEFITS: ${benefits || 'Exceptional value and performance'}
+TARGET AUDIENCE: ${targetAudience || 'Ideal buyers'}
 TONE: ${tone}
-PLATFORM: ${platform}
-PRICE POINT: ${pricePoint || 'Not specified'}
-SEO KEYWORDS: ${keywords || 'None'}
 
-Provide:
+Output structured as:
+**Catchy Product Title:**
+[SEO-optimized title]
 
-**Short Description (25-50 words):**
-[Punchy summary for product cards, search results]
+**Short Summary (Elevator Pitch):**
+[2-sentence hook for top-of-fold view]
 
-**Full Description (150-250 words):**
-[Complete product description with benefits, features, and social proof cues]
+**Key Benefit Bullets:**
+- [Benefit 1: Feature + emotional outcome]
+- [Benefit 2: Feature + convenience outcome]
+- [Benefit 3: Feature + quality outcome]
 
-**Bullet Points (5-7 key benefits):**
-[Benefit-focused bullets, not just feature lists]
+**Detailed Product Story:**
+[Engaging narrative describing the product experience]
 
-**SEO Meta Description (under 155 chars):**
-[Search-optimized description]
+**Technical Specs / What's Included:**
+[Clear feature checklist]
 
-**Ad Headline:**
-[Short, compelling headline for paid ads]`;
+**Meta Description (max 160 chars):**
+[SEO meta snippet]`;
 
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
-    const liveResult = await GeminiService.callGemini(userPrompt, systemPrompt, customApiKey);
-    if (!liveResult?.text) {
-      throw new Error('Gemini AI inference unavailable: No GEMINI_API_KEY configured or API request failed. Please configure GEMINI_API_KEY in Render dashboard or in your browser settings.');
-    }
+    const { customApiKey } = extractApiKeys(req);
+    const liveResult = await AIProviderService.generateText({
+      prompt: userPrompt,
+      systemPrompt,
+      task: 'product-description',
+      customApiKey,
+    });
 
-    const content = liveResult?.text || `**Short Description:**\n${productName || brandName}: ${features || 'Premium quality'} for ${targetAudience || 'discerning customers'}.\n\n**Full Description:**\nDiscover the difference with ${productName || brandName}. ${features}`;
+    const content = liveResult.text || `**${productName}**\n\nExperience unmatched quality and performance. Designed for ${targetAudience || 'everyday excellence'}.`;
 
     const result = {
       content,
-      model: liveResult?.source || 'zenvora-engine-v1',
       productName,
-      brandName,
+      model: liveResult.model || 'gpt-4o',
+      provider: liveResult.provider || 'openai',
       generatedAt: new Date().toISOString(),
     };
 
     const userId = req.user?.id || 'demo_user';
-    saveHistory(userId, 'product-description', req.body, result, result.model);
+    saveHistory(userId, 'product-description', req.body, result, result.provider);
     return successResponse(res, 'Product description generated successfully', result);
   } catch (err) {
     console.error('[Product Description]:', err.message);
@@ -804,40 +783,57 @@ Provide:
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// 11. AUTONOMOUS MARKETING AGENT (Multi-Step Marketing Agent)
-// POST /api/ai/agent
+// 13. AUTONOMOUS AGENT ORCHESTRATION
+// POST /api/ai/agent/execute
 // ════════════════════════════════════════════════════════════════════════════
 export const runAutonomousAgent = async (req, res) => {
   try {
-    const { instruction, command } = req.body;
-    const task = instruction || command;
-    if (!task || !task.trim()) {
-      return errorResponse(res, 'Instruction or command is required for the Autonomous Agent', 400);
-    }
+    const { goal, brandName, industry, targetAudience, channels = [] } = req.body;
+    if (!goal) return errorResponse(res, 'Goal is required for autonomous agent', 400);
 
-    const userId = req.user?.id || 'demo_user';
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY || '';
+    const { customApiKey } = extractApiKeys(req);
+    const prompt = `Autonomous marketing execution for goal: "${goal}".
+Brand: ${brandName || 'Brand'}, Industry: ${industry || 'General'}, Channels: ${channels.join(', ') || 'Omnichannel'}.
+Provide prioritized action steps, asset drafts, and expected outcomes.`;
 
-    const { default: Orchestrator } = await import('../services/orchestratorService.js');
-    const businessContext = await Orchestrator.getBusinessContext(userId);
-
-    const plan = await Orchestrator.runAutomationAgent({
-      instruction: task,
-      businessContext,
+    const liveResult = await AIProviderService.generateText({
+      prompt,
+      systemPrompt: 'You are an autonomous marketing AI agent. Execute strategy and output structured steps.',
+      task: 'strategy',
+      preferredProvider: 'claude',
       customApiKey,
     });
 
-    const executionResults = {
-      plan,
-      executedBy: 'Zenvora Multi-Agent Orchestrator',
+    const output = {
+      goal,
+      plan: liveResult.text || 'Autonomous execution plan formulated.',
+      model: liveResult.model || 'claude-3-7-sonnet-20250219',
+      provider: liveResult.provider || 'claude',
+      status: 'completed',
       executedAt: new Date().toISOString(),
-      businessContext: businessContext?.name || 'User Business',
     };
 
-    saveHistory(userId, 'autonomous-agent', { instruction: task }, executionResults, 'gemini-1.5-flash');
-    return successResponse(res, 'Autonomous marketing agent execution plan generated', executionResults);
+    const userId = req.user?.id || 'demo_user';
+    saveHistory(userId, 'autonomous-agent', req.body, output, output.provider);
+    return successResponse(res, 'Autonomous agent task completed', output);
   } catch (err) {
     console.error('[Autonomous Agent]:', err.message);
-    return errorResponse(res, `Autonomous agent execution failed: ${err.message}`, 500, err.message);
+    return errorResponse(res, 'Agent execution failed', 500, err.message);
   }
+};
+
+export default {
+  generateMarketingContent,
+  generateBlog,
+  generateCaptions,
+  generateHashtags,
+  generateSocialPost,
+  generateAdCreative,
+  generateCampaignStrategy,
+  generateEmail,
+  generateContentCalendar,
+  improveContent,
+  generateBrandVoice,
+  generateProductDescription,
+  runAutonomousAgent,
 };

@@ -114,7 +114,7 @@ export const SocialGeneratorPage = () => {
   const [ctaType, setCtaType]               = useState('Link in bio / first comment');
   const [includeEmojis, setIncludeEmojis]   = useState(true);
 
-  // Gemini API key state (stored in localStorage)
+  // AI Provider key state (stored in localStorage)
   const [customApiKey, setCustomApiKey]     = useState('');
   const [showKeyModal, setShowKeyModal]     = useState(false);
   const [keySavedToast, setKeySavedToast]   = useState(false);
@@ -135,7 +135,7 @@ export const SocialGeneratorPage = () => {
   const [postImgError, setPostImgError]     = useState(false);
 
   // Model & Execution states
-  const [copyModel, setCopyModel]           = useState('gemini-2.0-flash');
+  const [copyModel, setCopyModel]           = useState('gpt-4o');
   const [visualModel, setVisualModel]       = useState('flux');
   const [isEnhancing, setIsEnhancing]       = useState(false);
   const [aiModel, setAiModel]               = useState('');
@@ -149,18 +149,23 @@ export const SocialGeneratorPage = () => {
   const [savedSuccess, setSavedSuccess]     = useState(false);
   const [downloading, setDownloading]       = useState(false);
 
-  // Load custom Gemini API key from localStorage on mount
+  // Load custom API key from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('zenvora_gemini_api_key') || '';
+    const saved = localStorage.getItem('zenvora_openai_key') || localStorage.getItem('zenvora_claude_key') || '';
     setCustomApiKey(saved);
   }, []);
 
   const handleSaveApiKey = (e) => {
     e?.preventDefault();
     if (customApiKey.trim()) {
-      localStorage.setItem('zenvora_gemini_api_key', customApiKey.trim());
+      if (customApiKey.startsWith('sk-ant')) {
+        localStorage.setItem('zenvora_claude_key', customApiKey.trim());
+      } else {
+        localStorage.setItem('zenvora_openai_key', customApiKey.trim());
+      }
     } else {
-      localStorage.removeItem('zenvora_gemini_api_key');
+      localStorage.removeItem('zenvora_openai_key');
+      localStorage.removeItem('zenvora_claude_key');
     }
     setKeySavedToast(true);
     setTimeout(() => setKeySavedToast(false), 2500);
@@ -214,7 +219,7 @@ export const SocialGeneratorPage = () => {
       })();
 
       // Request 1: AI Marketing Content Generation
-      setLoadingStage(`Step 1/2: Generating post copy with ${copyModel.includes('2.0') ? 'Gemini 2.0 Flash' : copyModel}...`);
+      setLoadingStage(`Step 1/2: Generating post copy with ${copyModel || 'AI Engine'}...`);
 
       const contentPromise = api.generateContent({
         topic: topic.trim(),
@@ -635,7 +640,7 @@ export const SocialGeneratorPage = () => {
             type="button"
             onClick={() => setShowKeyModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs transition-colors"
-            title="Configure Gemini API Key"
+            title="Configure AI API Key"
           >
             <Key size={14} className="text-brand-violet" />
             <span>API Key</span>
@@ -647,7 +652,7 @@ export const SocialGeneratorPage = () => {
       {keySavedToast && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
           <Check size={16} className="text-emerald-600" />
-          <span>Gemini API Key saved to your browser session and active for all generations!</span>
+          <span>AI Provider Key saved to your browser session and active for all generations!</span>
         </div>
       )}
 
@@ -673,31 +678,31 @@ export const SocialGeneratorPage = () => {
                 <div className="p-2 rounded-lg bg-brand-violet/10 text-brand-violet">
                   <Key size={18} />
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">Google Gemini API Key</h3>
+                <h3 className="font-bold text-slate-900 text-base">OpenAI &amp; Claude API Key</h3>
               </div>
               <button onClick={() => setShowKeyModal(false)} className="text-slate-400 hover:text-slate-600">
                 <XIcon size={18} />
               </button>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Connect your Google Gemini API key to enable live generation through <strong>Gemini 1.5 Flash</strong> and <strong>Gemini 2.0</strong>. Your key is stored locally in your browser and sent securely via headers.
+              Connect your personal OpenAI (sk-...) or Anthropic Claude (sk-ant-...) API key to power live generation through <strong>GPT-4o</strong> and <strong>Claude 3.5 Sonnet</strong>. Keys are stored locally in your browser.
             </p>
             <form onSubmit={handleSaveApiKey} className="space-y-3">
               <input
                 type="password"
                 value={customApiKey}
                 onChange={(e) => setCustomApiKey(e.target.value)}
-                placeholder="AIzaSy... (Paste Gemini API Key)"
+                placeholder="sk-... (Paste OpenAI or Claude Key)"
                 className={inputCls}
               />
               <div className="flex items-center justify-between pt-2">
                 <a
-                  href="https://aistudio.google.com/app/apikey"
+                  href="https://platform.openai.com/api-keys"
                   target="_blank"
                   rel="noreferrer"
                   className="text-[11px] text-brand-violet hover:underline flex items-center gap-1"
                 >
-                  Get free key from Google AI Studio <ExternalLink size={11} />
+                  Get key from OpenAI Platform <ExternalLink size={11} />
                 </a>
                 <div className="flex items-center gap-2">
                   <button
@@ -953,7 +958,7 @@ export const SocialGeneratorPage = () => {
                 Include contextual emojis
               </label>
               <span className="text-[11px] text-slate-400 font-mono">
-                {aiModel || 'Gemini 1.5 Flash'}
+                {aiModel || 'OpenAI GPT-4o'}
               </span>
             </div>
 

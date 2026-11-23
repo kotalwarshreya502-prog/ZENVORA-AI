@@ -2,7 +2,7 @@
  * ZENVORA AI — Genuine End-to-End LLM Blog Generation Service
  *
  * Implements:
- * 1. Multi-provider real LLM integration (Google Gemini, Groq, OpenAI, OpenRouter, Universal Engine)
+ * 1. Multi-provider real LLM integration (Anthropic Claude 3.5/3.7, OpenAI GPT-4o, Universal Engine)
  * 2. Live research integration via Crossref (DOIs) & Wikipedia APIs (clickable, non-hallucinated citations)
  * 3. Dynamic prompt engineering for any industry (Travel, Tech, Healthcare, Education, Cooking, E-Commerce, etc.)
  * 4. Output validation for relevance, completeness, repetition, and SEO quality
@@ -11,7 +11,9 @@
  */
 
 import crypto from 'crypto';
-import GeminiService from './geminiService.js';
+import AIProviderService from './aiProviderService.js';
+import ClaudeProvider from './ai/claudeProvider.js';
+import OpenAIProvider from './ai/openaiProvider.js';
 
 /**
  * Fetch genuine, verifiable research citations for any topic
@@ -78,62 +80,55 @@ export async function fetchLiveResearch(topic, targetKeyword) {
 /**
  * Multi-Provider LLM Caller
  * Attempts providers in priority order:
- * 1. Google Gemini (GEMINI_API_KEY)
- * 2. Groq Cloud (GROQ_API_KEY)
- * 3. OpenAI / OpenRouter (OPENAI_API_KEY / OPENROUTER_API_KEY)
- * 4. High-Speed Universal LLM Gateway (Pollinations OpenAI engine with dynamic seed)
+ * 1. Anthropic Claude (ANTHROPIC_API_KEY)
+ * 2. OpenAI GPT-4o (OPENAI_API_KEY)
+ * 3. Groq Cloud (GROQ_API_KEY)
+ * 4. High-Speed Universal LLM Gateway
  */
 export async function callLLM(prompt, systemInstruction = '', options = {}) {
   const { customApiKey = '', requestedModel = '' } = options;
 
-  // ── Tier 1: Google Gemini API ──────────────────────────────────────────────
-  const geminiKey = (customApiKey && customApiKey.trim() !== '' && customApiKey !== 'your_gemini_api_key_here')
-    ? customApiKey.trim()
-    : process.env.GEMINI_API_KEY;
+  // Resolve effective keys: custom key takes priority, env vars as fallback
+  const effectiveClaudeKey = (customApiKey?.startsWith('sk-ant') ? customApiKey : '') || (process.env.ANTHROPIC_API_KEY || '');
+  const effectiveOpenAiKey = ((customApiKey?.startsWith('sk-proj') || (customApiKey?.startsWith('sk-') && !customApiKey?.startsWith('sk-ant'))) ? customApiKey : '') || (process.env.OPENAI_API_KEY || '');
 
-  if (geminiKey && geminiKey.trim() !== '' && geminiKey !== 'your_gemini_api_key_here') {
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
-    if (requestedModel && models.includes(requestedModel)) {
-      models.unshift(requestedModel);
-    }
-
-    for (const m of [...new Set(models)]) {
-      try {
-        const body = {
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 8192,
-          },
-        };
-        if (systemInstruction) {
-          body.systemInstruction = { role: 'user', parts: [{ text: systemInstruction }] };
-        }
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${geminiKey.trim()}`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(30000),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text && text.length > 100) {
-            return { text: text.trim(), provider: 'Google Gemini', model: m };
-          }
-        }
-      } catch (err) {
-        console.warn(`[BlogAIService] Gemini [${m}] error:`, err.message);
+  // ── Tier 1: OpenAI GPT-4o / GPT-4o-mini (Primary — always available when key set) ──
+  if (OpenAIProvider.isConfigured(effectiveOpenAiKey)) {
+    try {
+      const res = await OpenAIProvider.generateText({
+        prompt,
+        systemPrompt: systemInstruction,
+        model: requestedModel || 'gpt-4o',
+        customApiKey: effectiveOpenAiKey,
+        maxTokens: 6000,
+      });
+      if (res.text && res.text.length > 100) {
+        return { text: res.text.trim(), provider: 'OpenAI', model: res.model };
       }
+    } catch (err) {
+      console.warn('[BlogAIService] OpenAI attempt notice:', err.message);
     }
   }
 
-  // ── Tier 2: Groq Cloud API ────────────────────────────────────────────────
+  // ── Tier 2: Anthropic Claude (Optional — when key is configured) ──────────
+  if (ClaudeProvider.isConfigured(effectiveClaudeKey)) {
+    try {
+      const res = await ClaudeProvider.generateText({
+        prompt,
+        systemPrompt: systemInstruction,
+        model: requestedModel || 'claude-3-7-sonnet-20250219',
+        customApiKey: effectiveClaudeKey,
+        maxTokens: 6000,
+      });
+      if (res.text && res.text.length > 100) {
+        return { text: res.text.trim(), provider: 'Anthropic Claude', model: res.model };
+      }
+    } catch (err) {
+      console.warn('[BlogAIService] Claude attempt notice:', err.message);
+    }
+  }
+
+  // ── Tier 3: Groq Cloud API (Free fallback) ────────────────────────────────
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey && groqKey.trim()) {
     try {
@@ -404,7 +399,7 @@ export function validateAndFormatBlog({
 
 /**
  * End-to-End Blog Generation Controller
- * Called by GeminiService / aiController
+ * Called by aiController / AIProviderService
  */
 export async function generateBlogArticleEndToEnd({
   topic,
@@ -511,7 +506,8 @@ Format each as:
 
   // ── Step 5: Fail-Safe Resilient Domain Engine (Zero 500s) ──────────────────
   console.log(`[BlogAIService] External LLM rate-limited or unavailable — activating resilient domain engine.`);
-  const fallbackArticle = await GeminiService.generateBlogArticle({
+  const fallbackArticle = await AIProviderService.generateMarketingContent({
+    type: 'Blog Article',
     topic: safeTopic,
     targetKeyword: safeKw,
     secondaryKeywords: kwList,

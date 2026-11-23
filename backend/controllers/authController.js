@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import Storage from '../services/storageService.js';
 import { generateToken } from '../utils/jwtHelper.js';
 import { errorResponse, successResponse } from '../utils/responseHandler.js';
+import { isDbConnected, connectDB } from '../config/db.js';
 
 // ─── Register ────────────────────────────────────────────────────────────────
 export const register = async (req, res) => {
@@ -57,6 +58,9 @@ export const register = async (req, res) => {
     }
     if (err.code === 11000) {
       return errorResponse(res, 'An account with this email already exists', 409);
+    }
+    if (err.name === 'MongooseServerSelectionError' || err.message.includes('buffering timed out')) {
+      return errorResponse(res, 'Database service is currently connecting to MongoDB Atlas. Please ensure Atlas Network Access (0.0.0.0/0) is enabled.', 503);
     }
     return errorResponse(res, 'Registration failed. Please try again.', 500, err.message);
   }
@@ -137,6 +141,9 @@ export const login = async (req, res) => {
     });
   } catch (err) {
     console.error('[Auth] login error:', err.message);
+    if (err.name === 'MongooseServerSelectionError' || err.message.includes('buffering timed out')) {
+      return errorResponse(res, 'Database service is currently connecting to MongoDB Atlas. Please ensure Atlas Network Access (0.0.0.0/0) is enabled.', 503);
+    }
     return errorResponse(res, 'Login failed. Please try again.', 500, err.message);
   }
 };

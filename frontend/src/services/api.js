@@ -49,17 +49,22 @@ const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach JWT token & optional custom Gemini API key
+// Request Interceptor: Attach JWT token & optional custom OpenAI / Claude API keys
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('zenvora_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    const geminiKey = localStorage.getItem('zenvora_gemini_api_key');
-    if (geminiKey && geminiKey.trim()) {
-      config.headers['x-gemini-api-key'] = geminiKey.trim();
+    const openaiKey = localStorage.getItem('zenvora_openai_key') || localStorage.getItem('zenvora_openai_api_key');
+    if (openaiKey && openaiKey.trim()) {
+      config.headers['x-openai-api-key'] = openaiKey.trim();
     }
+    const claudeKey = localStorage.getItem('zenvora_claude_key') || localStorage.getItem('zenvora_anthropic_api_key');
+    if (claudeKey && claudeKey.trim()) {
+      config.headers['x-anthropic-api-key'] = claudeKey.trim();
+    }
+    // Note: Gemini key forwarding removed — project uses OpenAI + Claude only
     return config;
   },
   (error) => Promise.reject(error)
@@ -168,7 +173,7 @@ export const api = {
   // ── Competitor Analysis ──────────────────────────────────────────────────
   analyzeCompetitor: (data) => apiClient.post('/competitor/analyze', data),
 
-  // ── Image / Poster Generation (Google Gemini Image / Imagen 3) ──────────
+  // ── Image / Poster Generation (OpenAI DALL-E 3 HD) ──────────────────────
   generatePosterImage:   (data) => apiClient.post('/image/generate', data),
   generateSocialGraphic: (data) => apiClient.post('/image/social', data),
 

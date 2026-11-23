@@ -220,7 +220,7 @@ export const GenerationHistoryPage = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-400 flex-wrap">
-                          <span className="font-mono">{item.model || item.provider || 'gemini'}</span>
+                          <span className="font-mono">{item.model || item.provider || 'gpt-4o'}</span>
                           <span className="flex items-center gap-1">
                             <Clock size={9} />
                             {new Date(item.createdAt).toLocaleString()}

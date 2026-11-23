@@ -1,7 +1,7 @@
 /**
  * ZENVORA AI — Universal Poster & Creative Generation Controller
- * Drives real AI visual generation and advertising composition data.
- * Zero hardcoded brands, zero fake mockups, zero coding screens.
+ * Powered by OpenAI DALL-E 3 & Anthropic Claude / GPT-4o.
+ * Zero Google Gemini dependencies. Zero fake mockups.
  */
 
 import crypto from 'crypto';
@@ -25,8 +25,8 @@ async function saveToHistory(userId, input, output) {
       module: 'image-generation',
       input,
       output,
-      provider: output.provider || 'google-gemini-image',
-      model: output.model || 'gemini-3.1-flash-image',
+      provider: output.provider || 'openai',
+      model: output.model || 'dall-e-3',
       status: 'success',
       title,
     });
@@ -70,16 +70,16 @@ export const proxyImage = async (req, res) => {
 // ── POST /api/poster/analyze ──────────────────────────────────────────────────
 export const analyzePosterInput = async (req, res) => {
   try {
-    const { description, additionalInstructions = '' } = req.body;
+    const { description, additionalInstructions = '', industry = '' } = req.body;
 
     if (!description || description.trim().length < 3) {
       return errorResponse(res, 'Please provide a description of your campaign or brand', 400);
     }
 
     const { analyzeInput, buildDesignSpec } = await import('../services/posterIntelligenceService.js');
-    const apiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY;
+    const customKey = req.headers['x-openai-api-key'] || req.headers['x-anthropic-api-key'] || req.body.apiKey || '';
 
-    const analysis = await analyzeInput(description.trim(), apiKey);
+    const analysis = await analyzeInput(description.trim(), customKey, '', industry);
     const designSpec = buildDesignSpec(analysis);
 
     return successResponse(res, 'Campaign analyzed successfully', {
@@ -89,7 +89,7 @@ export const analyzePosterInput = async (req, res) => {
       stages: [
         'Analyzing campaign theme & visual setting',
         'Synthesizing brand palette & typography',
-        'Generating photorealistic AI background',
+        'Generating photorealistic AI background via DALL-E 3',
         'Compositing professional advertising poster',
       ],
     });
@@ -113,7 +113,8 @@ export const generatePoster = async (req, res) => {
       customOffer = '',
       customCta = '',
       seed: customSeed,
-      model = 'flux',
+      model = 'dall-e-3',
+      industry = '',
     } = req.body;
 
     if (!description || description.trim().length < 3) {
@@ -122,12 +123,12 @@ export const generatePoster = async (req, res) => {
 
     const descTrimmed = description.trim();
 
-    // ── 1. Analyze input with Gemini / Semantic Intelligence ──────────────────
+    // ── 1. Analyze input with Central AI Provider ─────────────────────────────
     const { analyzeInput, generatePosterPrompt, buildDesignSpec, fetchBrandLogo, validatePosterOutput } =
       await import('../services/posterIntelligenceService.js');
 
-    const apiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || process.env.GEMINI_API_KEY;
-    const analysis = await analyzeInput(descTrimmed, apiKey, customOffer);
+    const customKey = req.headers['x-openai-api-key'] || req.headers['x-anthropic-api-key'] || req.body.openaiApiKey || req.body.apiKey || '';
+    const analysis = await analyzeInput(descTrimmed, customKey, customOffer, industry);
 
     // Apply user overrides
     if (customHeadline) {
@@ -137,8 +138,26 @@ export const generatePoster = async (req, res) => {
     if (customOffer) analysis.offer = customOffer.trim().toUpperCase();
     if (customCta) analysis.cta = customCta.trim();
 
-    // ── 2. Parallel brand logo and asset resolution (Optimized - No duplicate Gemini calls) ──
-    const effectiveBrand = analysis.brandName || descTrimmed.split(/\s+/)[0];
+    // ── 2. Brand logo and asset resolution ────────────────────────────────────
+    const userBrand = (req.body.brandName || req.body.customBrand || '').trim();
+    let effectiveBrand = userBrand || analysis.brandName || '';
+    if (!effectiveBrand) {
+      const lower = descTrimmed.toLowerCase();
+      if (lower.includes('domino')) effectiveBrand = "Domino's";
+      else if (lower.includes('pizza hut')) effectiveBrand = 'Pizza Hut';
+      else if (lower.includes('samosa')) effectiveBrand = 'Samosa Express';
+      else if (lower.includes('burger')) effectiveBrand = 'Gourmet Burger Co.';
+      else if (lower.includes('coffee') || lower.includes('cafe')) effectiveBrand = 'Barista Craft';
+      else if (lower.includes('sneaker') || lower.includes('shoe')) effectiveBrand = 'AeroKicks';
+      else if (lower.includes('smartphone') || lower.includes('phone')) effectiveBrand = 'TechNova';
+      else if (lower.includes('skincare') || lower.includes('beauty')) effectiveBrand = 'Lumière Botanicals';
+      else if (lower.includes('hotel') || lower.includes('resort')) effectiveBrand = 'Azure Horizons';
+      else {
+        const potentialWord = descTrimmed.split(/\s+/).find(w => w.length > 2 && /^[A-Z]/.test(w) && !['Special', 'Diwali', 'Summer', 'Winter', 'New', 'Fresh', 'Hot', 'Get'].includes(w));
+        effectiveBrand = potentialWord || 'ZENVORA';
+      }
+    }
+    analysis.brandName = effectiveBrand;
     const logoResult = effectiveBrand ? await fetchBrandLogo(effectiveBrand, analysis.officialWebsite) : null;
     const researchData = {
       industry: analysis.industry,
@@ -146,26 +165,25 @@ export const generatePoster = async (req, res) => {
       colors: analysis.colorPalette || '',
     };
 
-    // ── 4. Dimensions setup ───────────────────────────────────────────────────
+    // ── 3. Dimensions setup ───────────────────────────────────────────────────
     const sizeMap = {
       square:    { width: 1024, height: 1024, label: '1024×1024 (1:1 Feed)' },
       portrait:  { width: 1080, height: 1350, label: '1080×1350 (4:5 Portrait)' },
       story:     { width: 1080, height: 1920, label: '1080×1920 (9:16 Story)' },
       landscape: { width: 1200, height: 675,  label: '1200×675 (16:9 Banner)' },
       wide:      { width: 1600, height: 900,  label: '1600×900 (Wide)' },
-      a4:        { width: 794,  height: 1123, label: '794×1123 (A4 Print)' },
     };
 
     const dimensions = sizeMap[size] || sizeMap.square;
 
-    // ── 5. Craft High-Impact Atmospheric Background Scene Prompt ─────────────
+    // ── 4. Craft High-Impact Advertising Prompt ──────────────────────────────
     let imagePrompt = generatePosterPrompt(analysis, researchData, style);
 
     if (additionalInstructions) {
-      imagePrompt = `${imagePrompt}, ${additionalInstructions.substring(0, 100)}`;
+      imagePrompt = `${imagePrompt}. ${additionalInstructions.substring(0, 150)}`;
     }
 
-    // ── 6. Generate Authentic Commercial Background Image (Imagen 3 / FLUX) ──
+    // ── 5. Generate AI Visual via OpenAI DALL-E 3 / FLUX Engine ──────────────
     const { ImageService } = await import('../services/imageService.js');
     const imageResult = await ImageService.generateImage({
       prompt: imagePrompt,
@@ -177,11 +195,11 @@ export const generatePoster = async (req, res) => {
       width: dimensions.width,
       height: dimensions.height,
       seed: customSeed,
-      customApiKey: apiKey,
-      model: model || 'flux',
+      customApiKey: customKey,
+      model: model || 'dall-e-3',
     });
 
-    // ── 7. Build complete design specification ────────────────────────────────
+    // ── 6. Build complete design specification ────────────────────────────────
     const designSpec = buildDesignSpec(analysis, researchData);
 
     const host = req.get('host') || 'localhost:5000';
@@ -219,13 +237,13 @@ export const generatePoster = async (req, res) => {
       logoResult,
       dimensions,
       seed: imageResult.seed,
-      model: imageResult.model,
-      provider: imageResult.provider,
+      model: imageResult.model || 'dall-e-3',
+      provider: imageResult.provider || 'openai',
       validation: validatePosterOutput({ designSpec, analysis }, customOffer || analysis.offer),
       generatedAt: new Date().toISOString(),
     };
 
-    // ── 8. Save to history in MongoDB ─────────────────────────────────────────
+    // ── 7. Save to history in MongoDB ─────────────────────────────────────────
     if (userId) {
       saveToHistory(
         userId,
@@ -237,8 +255,8 @@ export const generatePoster = async (req, res) => {
     return successResponse(res, 'AI Background & Poster composed successfully', output);
   } catch (err) {
     console.error('[PosterController] Generate error:', err.message);
-    const message = err.message || 'Image generation is temporarily unavailable. Please configure an image-generation provider.';
-    return errorResponse(res, message, 503, message);
+    const message = err.message || 'Image generation is temporarily unavailable.';
+    return errorResponse(res, message, 500, message);
   }
 };
 
@@ -262,4 +280,11 @@ export const getPosterHistory = async (req, res) => {
     console.error('[PosterController] History error:', err.message);
     return errorResponse(res, 'Failed to retrieve history', 500, err.message);
   }
+};
+
+export default {
+  proxyImage,
+  analyzePosterInput,
+  generatePoster,
+  getPosterHistory,
 };

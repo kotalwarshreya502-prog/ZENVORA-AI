@@ -16,13 +16,17 @@ services:
         value: 10000
       - key: MONGO_URI
         sync: false
+      - key: MONGODB_URI
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: CLIENT_URL
         value: https://zenvora-ai-frontend.onrender.com
-      # ── AI Engine Keys (set manually in Render dashboard) ──────────────────
-      - key: GEMINI_API_KEY
-        sync: false          # Set in Render dashboard: https://aistudio.google.com/app/apikey
+      # ── AI Engine Keys (OpenAI & Anthropic Claude) ──────────────────────────
+      - key: OPENAI_API_KEY
+        sync: false          # Set in Render dashboard: https://platform.openai.com/api-keys
+      - key: ANTHROPIC_API_KEY
+        sync: false          # Set in Render dashboard: https://console.anthropic.com/settings/keys
       - key: GOOGLE_SEARCH_API_KEY
         sync: false          # Optional: Google Custom Search API key for real web research
       - key: GOOGLE_SEARCH_ENGINE_ID

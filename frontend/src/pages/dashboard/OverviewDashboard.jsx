@@ -172,11 +172,11 @@ export const OverviewDashboard = () => {
 
           {/* Text AI */}
           <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${healthStatus?.geminiConfigured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            <span className={`w-2 h-2 rounded-full ${healthStatus?.openaiConfigured || healthStatus?.claudeConfigured || healthStatus?.aiConfigured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
             <div>
-              <span className="text-[10px] text-slate-400 block font-semibold">TEXT AI (GEMINI)</span>
-              <span className={`font-bold ${healthStatus?.geminiConfigured ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {healthStatus?.geminiConfigured ? 'Active (Real AI)' : 'Key Needed'}
+              <span className="text-[10px] text-slate-400 block font-semibold">AI ENGINE (GPT-4o &amp; CLAUDE)</span>
+              <span className={`font-bold ${healthStatus?.openaiConfigured || healthStatus?.claudeConfigured || healthStatus?.aiConfigured ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {healthStatus?.openaiConfigured && healthStatus?.claudeConfigured ? 'GPT-4o + Claude Active' : (healthStatus?.openaiConfigured ? 'OpenAI GPT-4o Active' : (healthStatus?.claudeConfigured ? 'Claude 3.5 Active' : 'Key Needed'))}
               </span>
             </div>
           </div>
@@ -185,7 +185,7 @@ export const OverviewDashboard = () => {
           <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
             <div>
-              <span className="text-[10px] text-slate-400 block font-semibold">IMAGE AI (FLUX)</span>
+              <span className="text-[10px] text-slate-400 block font-semibold">IMAGE AI (DALL-E 3)</span>
               <span className="font-bold text-slate-700">Available</span>
             </div>
           </div>
@@ -200,12 +200,12 @@ export const OverviewDashboard = () => {
           </div>
         </div>
 
-        {/* Notice banner if Gemini key not set on Render */}
-        {healthStatus && healthStatus.geminiConfigured === false && (
+        {/* Notice banner if AI keys not set on Render */}
+        {healthStatus && !healthStatus.openaiConfigured && !healthStatus.claudeConfigured && (
           <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
             <Zap size={15} className="text-amber-600 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <strong>Gemini API Key missing on server:</strong> Real AI inference requires setting <code className="font-mono bg-amber-100 px-1 rounded">GEMINI_API_KEY</code> in Render Dashboard environment variables, or entering your free API key via the <strong>API Key</strong> button on any generator page (stored locally in browser).
+              <strong>OpenAI / Claude API Keys:</strong> Set <code className="font-mono bg-amber-100 px-1 rounded">OPENAI_API_KEY</code> and/or <code className="font-mono bg-amber-100 px-1 rounded">ANTHROPIC_API_KEY</code> in Render Dashboard environment variables, or configure your keys under <a href="/dashboard/ai-settings" className="font-bold underline text-amber-900">AI Engine Settings</a>.
             </div>
           </div>
         )}

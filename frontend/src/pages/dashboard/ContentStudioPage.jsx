@@ -59,7 +59,7 @@ export const ContentStudioPage = () => {
   const [keywords, setKeywords]             = useState('');
   const [objective, setObjective]           = useState('');
   const [length, setLength]                 = useState('Medium (100-250 words)');
-  const [selectedModel, setSelectedModel]   = useState('gemini-2.0-flash');
+  const [selectedModel, setSelectedModel]   = useState('gpt-4o');
   const [isEnhancing, setIsEnhancing]       = useState(false);
 
   const [loading, setLoading]               = useState(false);
@@ -156,11 +156,10 @@ export const ContentStudioPage = () => {
   };
 
   const formatModelLabel = (m) => {
-    if (!m) return 'Gemini 2.0 Flash';
-    if (m.includes('semantic')) return 'Smart Creative Engine';
-    if (m.includes('2.0-flash')) return 'Gemini 2.0 Flash';
-    if (m.includes('1.5-flash')) return 'Gemini 1.5 Flash';
-    if (m.includes('1.5-pro')) return 'Gemini 1.5 Pro';
+    if (!m) return 'OpenAI GPT-4o';
+    if (m.includes('4o-mini')) return 'OpenAI GPT-4o Mini';
+    if (m.includes('4o')) return 'OpenAI GPT-4o';
+    if (m.includes('claude') || m.includes('sonnet')) return 'Anthropic Claude 3.5 Sonnet';
     return m;
   };
 

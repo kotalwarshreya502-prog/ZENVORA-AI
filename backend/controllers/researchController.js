@@ -12,8 +12,8 @@ async function saveToHistory(userId, module, input, output, model) {
       module,
       input,
       output,
-      provider: 'google-gemini',
-      model: model || 'gemini-1.5-flash',
+      provider: output.provider || 'claude',
+      model: model || 'claude-3-7-sonnet-20250219',
       status: 'success',
       title: input.topic || input.question || 'Web Research',
     });
@@ -26,7 +26,7 @@ export const analyzeResearch = async (req, res) => {
   try {
     const { topic, question, depth = 'standard' } = req.body;
     const userId = req.user?.id || 'demo_user';
-    const customApiKey = req.headers['x-gemini-api-key'] || req.body.geminiApiKey || '';
+    const customApiKey = req.headers['x-anthropic-api-key'] || req.headers['x-openai-api-key'] || req.body.apiKey || '';
 
     if (!topic && !question) {
       return errorResponse(res, 'Please provide a topic or research question', 400);
@@ -57,8 +57,8 @@ export const analyzeResearch = async (req, res) => {
         snippet: s.snippet || '',
         fetchedAt: new Date().toISOString(),
       })),
-      model: 'gemini-1.5-flash',
-      provider: 'google-gemini',
+      model: researchResult.model || 'claude-3-7-sonnet-20250219',
+      provider: researchResult.provider || 'claude',
       isAIGenerated: true,
       researchedAt: new Date().toISOString(),
     };

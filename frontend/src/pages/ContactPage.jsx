@@ -67,7 +67,7 @@ export const ContactPage = () => {
           <div className="p-6 rounded-2xl bg-brand-navy text-white space-y-3 text-xs">
             <div className="font-bold text-sm text-brand-teal">Enterprise SLA Commitment</div>
             <p className="text-slate-300 leading-relaxed">
-              We offer dedicated private cloud deployments, custom Gemini prompt fine-tuning, and 99.9% uptime SLAs for high-volume agencies and franchised brands.
+              We offer dedicated private cloud deployments, custom OpenAI and Anthropic Claude prompt fine-tuning, and 99.9% uptime SLAs for high-volume agencies and franchised brands.
             </p>
           </div>
         </div>

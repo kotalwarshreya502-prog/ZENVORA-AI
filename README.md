@@ -10,7 +10,7 @@
 **ZENVORA AI** is an end-to-end AI marketing automation and intelligence SaaS platform engineered to help modern businesses, marketing teams, and digital agencies scale their multi-channel digital footprint through data-driven automation, brand voice preservation, and sustainable organic growth.
 
 ### 🌟 Core Capabilities
-- **AI Content Studio**: Powered by Google Gemini 1.5 with dynamic brand voice guardrails for social posts, blogs, captions, ad copy, and email sequences.
+- **AI Content Studio**: Powered by OpenAI GPT-4o and Anthropic Claude 3.5 with dynamic brand voice guardrails for social posts, blogs, captions, ad copy, and email sequences.
 - **Multi-Angle Social Post Generator**: Real-time interactive feed mockup simulators for LinkedIn, X (Twitter), Instagram, and Facebook.
 - **Automated Long-Form Blog Engine**: Programmatic outline generator, markdown previewer, SEO keyword scoring, and reading time estimation.
 - **Tiered Hashtag Clustering**: Algorithmic tag extraction categorized by Broad Reach, Niche Authority, High-Intent Conversion, and Community.
@@ -56,7 +56,7 @@
 - **Authentication**: JWT (`jsonwebtoken`) + `bcryptjs` password hashing
 - **Security**: Helmet, CORS origin whitelisting, Rate limiting ready
 - **Logging**: Morgan HTTP logger
-- **AI Engine**: Google Gemini 1.5 integration with brand voice injection
+- **AI Engine**: Centralized AI Provider Orchestrator powered by OpenAI (GPT-4o & DALL-E 3) and Anthropic Claude (3.7 & 3.5 Sonnet)
 
 ---
 
@@ -77,7 +77,7 @@ ZENVORA-AI/
 │   │   ├── testDb.js             # Atlas connection diagnostic script
 │   │   └── verifyBackend.mjs     # Automated 11-step backend test suite
 │   ├── services/
-│   │   ├── geminiService.js      # Gemini AI integration with brand voice injection
+│   │   ├── aiProviderService.js  # Centralized AI orchestrator (OpenAI GPT-4o & Claude 3.5/3.7)
 │   │   └── storageService.js     # Hybrid storage layer (Atlas + in-memory store)
 │   ├── .env.example
 │   ├── package.json
@@ -142,7 +142,8 @@ NODE_ENV=development
 MONGO_URI=mongodb+srv://<username>:<password>@cluster0.psewugl.mongodb.net/zenvora_ai?retryWrites=true&w=majority
 JWT_SECRET=your_super_secret_jwt_key_min_32_characters
 CLIENT_URL=http://localhost:5173
-GEMINI_API_KEY=your_optional_gemini_api_key
+OPENAI_API_KEY=your_openai_api_key_here
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 ```
 
 **`frontend/.env`**:

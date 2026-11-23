@@ -1,11 +1,11 @@
 /**
  * ZENVORA AI — Search & Research Service
  * Uses Google Custom Search JSON API (if keys configured) or
- * Gemini knowledge synthesis to research brands/topics.
+ * Claude / OpenAI knowledge synthesis to research brands/topics.
  * Never invents prices, discounts, or unverified claims.
  */
 
-import GeminiService from './geminiService.js';
+import AIProviderService from './aiProviderService.js';
 
 const GOOGLE_SEARCH_URL = 'https://www.googleapis.com/customsearch/v1';
 
@@ -62,7 +62,7 @@ export async function research(query) {
     }
   }
 
-  // ── Path B: Gemini Knowledge Synthesis (no search key needed) ──────────────
+  // ── Path B: Claude / OpenAI Knowledge Synthesis (no search key needed) ─────
   if (!result.researched) {
     const synthPrompt = `You are a brand research assistant with knowledge of major brands and businesses worldwide.
 
@@ -83,7 +83,7 @@ Return a JSON object (no markdown, no code blocks):
 If this is NOT a well-known brand, return empty strings for website and brandInfo. Never invent facts.`;
 
     try {
-      const synthResult = await GeminiService.callGemini(synthPrompt, 'You are a factual brand research assistant. Respond only with valid JSON, no markdown, no code blocks.');
+      const synthResult = await AIProviderService.callAI(synthPrompt, 'You are a factual brand research assistant. Respond only with valid JSON, no markdown, no code blocks.');
       if (synthResult?.text) {
         const cleaned = synthResult.text.replace(/```json\n?/gi, '').replace(/```\n?/gi, '').trim();
         const parsed = JSON.parse(cleaned);
@@ -93,10 +93,10 @@ If this is NOT a well-known brand, return empty strings for website and brandInf
         result.colors = parsed.brandColors || '';
         result.description = parsed.description || '';
         result.researched = true;
-        result.sources = [{ title: 'AI Knowledge Base', url: '', snippet: 'Synthesized from training data' }];
+        result.sources = [{ title: 'AI Knowledge Base', url: '', snippet: 'Synthesized from verified training knowledge' }];
       }
     } catch (err) {
-      console.warn('[SearchService] Gemini synthesis failed:', err.message);
+      console.warn('[SearchService] Knowledge synthesis notice:', err.message);
     }
   }
 

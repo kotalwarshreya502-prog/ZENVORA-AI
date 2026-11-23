@@ -5,7 +5,7 @@
  */
 
 import axios from 'axios';
-import GeminiService from './geminiService.js';
+import AIProviderService from './aiProviderService.js';
 
 /**
  * Clean HTML and extract useful metadata and text content
@@ -90,7 +90,7 @@ function extractHtmlMetadata(html, baseUrl) {
 }
 
 /**
- * Scrape website URL and extract deep business profile using Gemini
+ * Scrape website URL and extract deep business profile using Central AI Engine (Claude / OpenAI)
  */
 export async function scrapeAndAnalyzeBusiness(websiteUrl, customApiKey = '') {
   if (!websiteUrl || !websiteUrl.trim()) {
@@ -140,7 +140,7 @@ export async function scrapeAndAnalyzeBusiness(websiteUrl, customApiKey = '') {
     domainName = domainName.charAt(0).toUpperCase() + domainName.slice(1);
   } catch {}
 
-  // Build the intelligence extraction prompt for Gemini
+  // Build the intelligence extraction prompt for AI Engine
   const prompt = `Analyze the following website data and extract complete, highly accurate business intelligence for marketing operations.
 
 Target Website: ${formattedUrl}
@@ -195,10 +195,14 @@ Return ONLY a valid JSON object matching this exact schema (no markdown, no back
 
   const systemInstruction = `You are the Central ZENVORA Business Understanding Agent. Your role is to examine website content and extract comprehensive brand intelligence. Never invent fake claims. Respond with strict valid JSON only.`;
 
-  const aiRes = await GeminiService.callGemini(prompt, systemInstruction, customApiKey);
+  const aiRes = await AIProviderService.callAI({
+    prompt: `${systemInstruction}\n\n${prompt}`,
+    task: 'business_analysis',
+    customApiKey,
+  });
 
   if (!aiRes || !aiRes.text) {
-    throw new Error('Gemini failed to return business intelligence analysis');
+    throw new Error('AI Engine failed to return business intelligence analysis');
   }
 
   let cleaned = aiRes.text.replace(/```json\n?/gi, '').replace(/```\n?/gi, '').trim();
