@@ -20,6 +20,13 @@ const resolveBaseUrl = () => {
 
 const baseURL = resolveBaseUrl();
 
+export const proxyImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  if (url.startsWith('data:')) return url;
+  const origin = baseURL.replace(/\/api\/?$/, '');
+  return `${origin}/api/poster/proxy?url=${encodeURIComponent(url)}`;
+};
+
 export const resolveImageUrl = (url) => {
   if (!url || typeof url !== 'string') return '';
 
@@ -28,26 +35,15 @@ export const resolveImageUrl = (url) => {
     return url;
   }
 
-  const origin = baseURL.replace(/\/api\/?$/, '');
-
-  // 2. Proxy external Unsplash images through backend to bypass ISP / CORS / ad-blocker restrictions
-  if (url.includes('images.unsplash.com') && !url.includes('/api/poster/proxy')) {
-    return `${origin}/api/poster/proxy?url=${encodeURIComponent(url)}`;
-  }
-
-  // 3. Force HTTPS on production or when current page is served over HTTPS (prevents Mixed Content blocks)
-  if (url.startsWith('http://')) {
-    const isProdHost = url.includes('render.com') || url.includes('zenvora') || (typeof window !== 'undefined' && window.location.protocol === 'https:');
-    if (isProdHost) {
-      url = url.replace(/^http:\/\//i, 'https://');
-    }
-  }
-
+  // 2. Direct absolute URLs (e.g. Unsplash, Wikipedia, CDNs)
+  // Serve directly over HTTPS to bypass backend proxy latency and cold-starts.
+  // Unsplash and major image CDNs include Access-Control-Allow-Origin: * by default.
   if (url.startsWith('https://') || url.startsWith('http://')) {
-    return url;
+    return url.replace(/^http:\/\//i, 'https://');
   }
 
-  // 4. Resolve relative path against API origin
+  // 3. Resolve relative path against API origin
+  const origin = baseURL.replace(/\/api\/?$/, '');
   const cleanPath = url.startsWith('/') ? url : `/${url}`;
   return `${origin}${cleanPath}`;
 };
@@ -227,6 +223,9 @@ export const api = {
       return true;
     }
   },
+
+  resolveImageUrl,
+  proxyImageUrl,
 };
 
 export default apiClient;

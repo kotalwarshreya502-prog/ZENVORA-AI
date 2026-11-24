@@ -29,6 +29,68 @@ const postersDir = path.resolve(__dirname, '../uploads/posters');
 
 // ── Curated High-Definition Commercial Photography CDN Assets (Guaranteed 200 OK) ──
 export const CURATED_COMMERCIAL_ASSETS = {
+  books: [
+    'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1200&q=80',
+  ],
+  jewellery: [
+    'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=1200&q=80',
+  ],
+  watches: [
+    'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1524805444758-089113d48a6d?auto=format&fit=crop&w=1200&q=80',
+  ],
+  furniture: [
+    'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1200&q=80',
+  ],
+  perfume: [
+    'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1547887537-6158d64c35b3?auto=format&fit=crop&w=1200&q=80',
+  ],
+  fitness: [
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=1200&q=80',
+  ],
+  eyewear: [
+    'https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=1200&q=80',
+  ],
+  flowers: [
+    'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=1200&q=80',
+  ],
+  groceries: [
+    'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=1200&q=80',
+  ],
+  gaming: [
+    'https://images.unsplash.com/photo-1600080972464-8e5f35f63d08?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
+  ],
+  music: [
+    'https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?auto=format&fit=crop&w=1200&q=80',
+  ],
+  pets: [
+    'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=1200&q=80',
+  ],
+  dentistry: [
+    'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?auto=format&fit=crop&w=1200&q=80',
+  ],
+  toys: [
+    'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=1200&q=80',
+  ],
+  headphones: [
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=80',
+  ],
+  solar: [
+    'https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=1200&q=80',
+  ],
   smartphone: [
     'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=1200&q=80',
     'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1200&q=80',
@@ -110,12 +172,20 @@ export const CURATED_COMMERCIAL_ASSETS = {
     'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=80',
   ],
   tech: [
-    'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1200&q=80',
+  ],
+  smartdevices: [
+    'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1200&q=80',
   ],
   default: [
-    'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=80',
   ],
 };
 
@@ -150,9 +220,11 @@ async function fetchRealCommercialImage(searchQuery) {
     const results = data.results || [];
 
     // Attempt downloading top results until a valid image buffer is acquired
-    for (const item of results.slice(0, 6)) {
+    for (const item of results.slice(0, 8)) {
       const imgUrl = item.image;
       if (!imgUrl || !imgUrl.startsWith('http')) continue;
+      // Filter out tutorials, studio gear guides, and tripods
+      if (/setup|guide|tutorial|lighting-kit|tripod|behind-the-scenes/i.test(imgUrl) || /setup|guide|how to/i.test(item.title || '')) continue;
       try {
         const imgRes = await fetch(imgUrl, {
           signal: AbortSignal.timeout(6000),
@@ -182,6 +254,53 @@ async function fetchRealCommercialImage(searchQuery) {
     }
   } catch (err) {
     console.warn('[ImageService] Live commercial search notice:', err.message);
+  }
+  return null;
+}
+
+/**
+ * Real-Time Dynamic Commercial Photography Search via Wikipedia PageImages
+ * Works reliably from any server, datacenter, or IP with 0 keys or rate limits.
+ */
+async function fetchWikipediaCommercialImage(query) {
+  try {
+    const cleanQuery = (query || '')
+      .replace(/[0-9]+%|\boff\b|\bdiscount\b|\bsale\b|\bdeal\b|\bflash\b|\bspecial\b/gi, '')
+      .replace(/[^a-zA-Z0-9\s]/g, '')
+      .trim();
+    if (!cleanQuery || cleanQuery.length < 2) return null;
+
+    const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrsearch=${encodeURIComponent(cleanQuery)}&gsrlimit=4&prop=pageimages&piprop=original|thumbnail&pithumbsize=1200`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZenvoraAI/2.0' },
+      signal: AbortSignal.timeout(6000),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const pages = Object.values(data?.query?.pages || {});
+    const target = pages.find(p => (p.thumbnail?.source || p.original?.source) && !p.title.includes('List of') && !p.title.includes('disambiguation'));
+    const imgUrl = target?.thumbnail?.source || target?.original?.source;
+
+    if (imgUrl && imgUrl.startsWith('http')) {
+      const imgRes = await fetch(imgUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZenvoraAI/2.0' },
+        signal: AbortSignal.timeout(7000),
+      });
+      if (imgRes.ok) {
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        if (buf.length > 5000) {
+          return {
+            buffer: buf,
+            upstreamUrl: imgUrl,
+            contentType: imgRes.headers.get('content-type') || 'image/jpeg',
+            provider: 'live-knowledge-photography',
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[ImageService] Live knowledge search notice:', err.message);
   }
   return null;
 }
@@ -296,8 +415,8 @@ export const ImageService = {
     let liveResult = null;
     try {
       const searchTerms = [
-        `${effectiveBrand ? effectiveBrand + ' ' : ''}${resolvedCat !== 'default' ? resolvedCat : (campaignTitle || 'product')} commercial product photography studio`,
-        `${campaignTitle || resolvedCat} advertising photography studio lighting`,
+        `${resolvedCat !== 'default' ? resolvedCat : ''} ${campaignTitle || 'product'} aesthetic commercial photography`.trim(),
+        `${resolvedCat !== 'default' ? resolvedCat : (campaignTitle || 'product')} advertising product photography`.trim(),
         `${resolvedCat} commercial photography`,
       ];
 
@@ -311,6 +430,20 @@ export const ImageService = {
       }
     } catch (e) {
       console.warn('[ImageService] Live search notice:', e.message);
+    }
+
+    // ── Tier 2b: Real-Time Dynamic Knowledge Photography Search (Wikipedia API) ──
+    if (!liveResult?.buffer) {
+      try {
+        const rawSubject = resolvedCat !== 'default' && resolvedCat !== 'ecommerce' ? resolvedCat : (campaignTitle || effectiveBrand || prompt);
+        console.log(`[ImageService] Live knowledge photography search for: "${rawSubject}"...`);
+        liveResult = await fetchWikipediaCommercialImage(rawSubject);
+        if (liveResult?.buffer) {
+          console.log(`✅ [ImageService] Acquired authentic knowledge photography (${liveResult.buffer.length} bytes)`);
+        }
+      } catch (e) {
+        console.warn('[ImageService] Live knowledge photography search notice:', e.message);
+      }
     }
 
     // ── Tier 3: Fast Turbo Engine ─────────────────────────────────────────────

@@ -14,6 +14,22 @@ import { extractStrictOffer, buildStrictOfferRules, sanitizeGeneratedText } from
 
 // ── Category detection keywords (specific product keywords checked FIRST) ─────
 export const CATEGORY_KEYWORDS = {
+  books:        ['book', 'books', 'bookstore', 'novel', 'novels', 'reading', 'library', 'literature', 'author', 'fiction', 'textbook', 'hardcover', 'paperback', 'read', 'bookmark', 'publishing', 'storybooks', 'audiobooks'],
+  jewellery:    ['jewellery', 'jewelry', 'diamond', 'gold', 'silver', 'necklace', 'ring', 'earrings', 'bracelet', 'gemstone', 'gemstones', 'luxury accessories', 'pendant', 'jewel', 'platinum'],
+  watches:      ['watch', 'watches', 'wristwatch', 'timepiece', 'luxury watch', 'chronograph', 'rolex', 'omega', 'smartwatch', 'wrist watch'],
+  furniture:    ['furniture', 'sofa', 'couch', 'dining table', 'chair', 'desk', 'bed', 'mattress', 'wardrobe', 'interior design', 'home decor', 'cabinet', 'bookshelf'],
+  perfume:      ['perfume', 'fragrance', 'cologne', 'scent', 'eau de parfum', 'mist', 'deodorant', 'body spray'],
+  fitness:      ['gym', 'fitness', 'workout', 'bodybuilding', 'crossfit', 'dumbbell', 'weights', 'yoga', 'protein', 'trainer', 'exercise', 'muscle', 'health club'],
+  eyewear:      ['sunglasses', 'glasses', 'spectacles', 'eyewear', 'shades', 'optical', 'frames', 'lenses', 'rayban'],
+  flowers:      ['flowers', 'florist', 'bouquet', 'roses', 'flower', 'floral', 'plants', 'gardening', 'nursery', 'tulips', 'orchids'],
+  groceries:    ['grocery', 'groceries', 'supermarket', 'fruits', 'vegetables', 'organic food', 'mart', 'daily essentials', 'produce', 'vegetable', 'fruit'],
+  gaming:       ['gaming', 'video games', 'gamer', 'playstation', 'xbox', 'nintendo', 'pc gaming', 'esports', 'console', 'controller', 'arcade'],
+  music:        ['guitar', 'music', 'instruments', 'piano', 'drums', 'violin', 'audio', 'singer', 'band', 'studio', 'sound', 'musical'],
+  pets:         ['pet', 'pets', 'dog', 'cat', 'puppy', 'kitten', 'veterinary', 'pet food', 'dog food', 'pet care', 'vet clinic', 'canine', 'feline'],
+  dentistry:    ['dentist', 'dental', 'teeth', 'teeth whitening', 'braces', 'orthodontics', 'oral care', 'smile', 'dental clinic'],
+  toys:         ['toys', 'toy', 'games', 'kids toys', 'lego', 'dolls', 'board game', 'baby toys', 'plush', 'action figures'],
+  headphones:   ['headphones', 'earbuds', 'airpods', 'wireless earphones', 'headset', 'audio speaker', 'soundbar', 'bluetooth earphone'],
+  solar:        ['solar', 'solar panel', 'clean energy', 'renewable energy', 'rooftop solar', 'green energy', 'photovoltaic'],
   samosa:       ['samosa', 'samosas', 'sambusa', 'singhara', 'aloo samosa', 'samosa chaat'],
   pizza:        ['pizza', 'pizzeria', 'wood fired pizza', 'slice', 'margherita', 'pepperoni'],
   burger:       ['burger', 'cheeseburger', 'hamburger', 'fast food', 'patty', 'bacon burger'],
@@ -38,6 +54,134 @@ export const CATEGORY_KEYWORDS = {
 
 // ── Hero subject & atmosphere definitions by category ─────────────────────────
 export const CATEGORY_SUBJECT_PROFILES = {
+  books: {
+    heroSubject: 'aesthetic arrangement of open and stacked hardcover and paperback books with rich embossed titles, textured paper edges, elegant bookmark ribbons, and warm reading ambiance',
+    setting: 'rustic polished oak library table or cozy independent bookstore nook with warm atmospheric lamp glow, vintage reading glasses, and rows of mahogany bookshelves softly blurred in background',
+    colors: 'warm parchment amber, rich leather burgundy, deep oak brown, forest green, warm gold',
+    mood: 'intellectual inspiring literary cozy bookstore atmosphere',
+    allowPeople: false,
+    layout: 'editorial',
+  },
+  jewellery: {
+    heroSubject: 'exquisite luxury diamond and gold jewelry necklace with sparkling faceted gemstones, pristine brilliance, and macro reflections',
+    setting: 'resting on an ultra-smooth dark velvet or reflective black onyx pedestal with directional jewelry spotlighting and pristine crystal reflections',
+    colors: 'radiant 24k gold, brilliant diamond white, deep obsidian black, champagne',
+    mood: 'ultra-prestigious high-luxury haute joaillerie',
+    allowPeople: false,
+    layout: 'minimal-luxury',
+  },
+  watches: {
+    heroSubject: 'luxury Swiss mechanical wristwatch showcasing intricate skeleton dial, polished sapphire crystal, and brushed stainless steel chronometer finish',
+    setting: 'resting on a dark carbon fiber or slate platform with dramatic precision studio rim lighting and crisp metallic reflections',
+    colors: 'precision silver, midnight blue, rose gold, slate black',
+    mood: 'prestigious precision luxury horology craftsmanship',
+    allowPeople: false,
+    layout: 'minimal-luxury',
+  },
+  furniture: {
+    heroSubject: 'stunning designer Scandinavian modern living room furniture ensemble featuring premium tailored sofa, minimalist solid oak coffee table, and designer floor lamp',
+    setting: 'sunlit architectural living room with floor-to-ceiling glass windows, warm hardwood floors, and serene minimalist interior design',
+    colors: 'warm oat beige, natural oak, muted sage, soft charcoal',
+    mood: 'serene sophisticated contemporary interior lifestyle',
+    allowPeople: false,
+    layout: 'full-bleed',
+  },
+  perfume: {
+    heroSubject: 'luxurious bespoke crystal fragrance perfume bottle with radiant mist spray, golden cap, and crystal-clear reflective glass curves',
+    setting: 'perched on a wet polished marble slab surrounded by delicate flower petals, water ripples, and soft diffused morning light',
+    colors: 'rose champagne, crystalline amber, gold, pure marble white',
+    mood: 'sensory alluring high-end luxury fragrance advertising',
+    allowPeople: false,
+    layout: 'minimal-luxury',
+  },
+  fitness: {
+    heroSubject: 'pair of heavy cast-iron matte black dumbbells and resistance training equipment arranged dynamically',
+    setting: 'modern industrial boutique fitness gym with dark concrete walls, dramatic overhead neon cross-lighting, and motivating athletic vibe',
+    colors: 'matte black, athletic neon volt, steel chrome, charcoal',
+    mood: 'powerful high-energy athletic fitness performance',
+    allowPeople: false,
+    layout: 'bold-promotional',
+  },
+  eyewear: {
+    heroSubject: 'designer polarized sunglasses with premium tortoise shell acetate frame and gradient anti-reflective tinted lenses',
+    setting: 'resting on sun-bleached driftwood or polished stone with warm golden Mediterranean summer sunlight reflections',
+    colors: 'warm amber tortoise, golden ray, deep bronze, seafoam',
+    mood: 'stylish effortless summer lifestyle luxury',
+    allowPeople: false,
+    layout: 'product-focused',
+  },
+  flowers: {
+    heroSubject: 'breathtaking handcrafted floral bouquet with fresh blooming pastel roses, peonies, eucalyptus leaves, and baby breath',
+    setting: 'wrapped in natural artisanal craft paper and silk ribbon resting on a rustic wooden flower shop counter with morning dew drops',
+    colors: 'blush pink, soft cream, sage green, petal peach, lavender',
+    mood: 'fresh romantic uplifting artisanal florist beauty',
+    allowPeople: false,
+    layout: 'editorial',
+  },
+  groceries: {
+    heroSubject: 'vibrant rustic wooden crate overflowing with farm-fresh organic crisp vegetables, ripe heritage tomatoes, and vibrant fruits',
+    setting: 'rustic farmers market stall with crisp morning natural sunlight and dew drops glistening on fresh produce',
+    colors: 'vibrant leaf green, ripe tomato red, sunlit carrot orange, earthy wood',
+    mood: '100% wholesome organic farm-to-table fresh goodness',
+    allowPeople: false,
+    layout: 'product-focused',
+  },
+  gaming: {
+    heroSubject: 'next-gen gaming console controller and backlit mechanical gaming keyboard with vibrant programmable RGB lighting',
+    setting: 'futuristic dark esports gaming setup with holographic purple and cyan accent neon tubes and sleek carbon desk mat',
+    colors: 'cyberpunk purple, neon electric cyan, matte stealth black',
+    mood: 'immersive adrenaline-fueled competitive gaming experience',
+    allowPeople: false,
+    layout: 'bold-promotional',
+  },
+  music: {
+    heroSubject: 'magnificent acoustic handcrafted guitar with polished rosewood grain and golden brass tuning pegs',
+    setting: 'warm atmospheric recording studio with acoustic wood diffuser walls and warm vintage incandescent filament bulb glow',
+    colors: 'rich rosewood, honey sunburst, brass gold, warm amber',
+    mood: 'soulful authentic artisanal musical passion',
+    allowPeople: false,
+    layout: 'editorial',
+  },
+  pets: {
+    heroSubject: 'healthy cheerful golden retriever dog with shiny coat and happy expression beside premium organic pet food bowl',
+    setting: 'bright clean sunlit modern home living room with soft natural daylight and joyful pet care atmosphere',
+    colors: 'warm golden honey, natural cream, grass green, sky blue',
+    mood: 'heartwarming joyful loving premium pet care and wellness',
+    allowPeople: false,
+    layout: 'product-focused',
+  },
+  dentistry: {
+    heroSubject: 'pristine modern dental care aesthetic with mirror and precision instruments showcasing radiant healthy smile care',
+    setting: 'state-of-the-art dental wellness clinic with soft diffused natural daylight, pristine hygiene, and compassionate health ambiance',
+    colors: 'clinical cyan, pearlescent white, trust navy, soft mint',
+    mood: 'confident radiant healthy bright smile transformation',
+    allowPeople: false,
+    layout: 'minimal-luxury',
+  },
+  toys: {
+    heroSubject: 'colorful creative wooden building blocks and imaginative toy set arranged playfully',
+    setting: 'bright cheerful sun-filled modern nursery with soft pastel educational playroom backdrop',
+    colors: 'cheerful sunshine yellow, sky blue, playful red, mint green',
+    mood: 'joyful creative imaginative childhood learning and fun',
+    allowPeople: false,
+    layout: 'product-focused',
+  },
+  headphones: {
+    heroSubject: 'ultra-premium matte wireless noise-cancelling over-ear headphones with memory foam ear cushions and brushed aluminum accents',
+    setting: 'floating dynamically against a dark minimalist acoustic foam studio backdrop with clean edge rim lighting',
+    colors: 'matte slate black, champagne silver, dark graphite',
+    mood: 'pure audiophile studio acoustic perfection and comfort',
+    allowPeople: false,
+    layout: 'minimal-luxury',
+  },
+  solar: {
+    heroSubject: 'sleek high-efficiency crystalline rooftop solar panels with blue-black photovoltaic cell patterns reflecting clear open sky',
+    setting: 'modern sustainable eco-home roof under bright brilliant blue sky and radiant golden sun rays',
+    colors: 'deep solar blue, clean silver, bright sunlit cyan, emerald green',
+    mood: 'empowering clean sustainable renewable energy independence',
+    allowPeople: false,
+    layout: 'full-bleed',
+  },
   samosa: {
     heroSubject: 'plate of freshly fried, golden-brown crispy Indian samosas with flaky triangular pastry crust, filled with savory spiced potatoes and green peas, served with small bowls of fresh green mint chutney and sweet red tamarind chutney, garnished with fresh coriander leaves, mouthwatering food photography filling 85% of frame',
     setting: 'rustic dark slate platter and small brass dipping bowls with warm restaurant ambient lighting, delicate steam gently rising from the hot samosas, strictly food macro shot',
@@ -257,38 +401,63 @@ export async function fetchBrandLogo(brandName, officialWebsite = '') {
 
 // ── Priority-Ordered Universal Category Detector ─────────────────────────────
 // Specific products ALWAYS take precedence over generic "sale" or "discount" words!
+function matchKeywords(text, keywords = []) {
+  return keywords.some(kw => {
+    if (kw.length <= 4) {
+      return new RegExp(`\\b${kw}\\b`, 'i').test(text);
+    }
+    return text.includes(kw);
+  });
+}
+
 export function detectCategory(description = '', explicitIndustry = '') {
   const lower = `${explicitIndustry} ${description}`.toLowerCase();
 
   // 1. Food verticals (checked FIRST so "50% off samosa" matches samosa, NOT generic ecommerce)
-  if (CATEGORY_KEYWORDS.samosa.some(kw => lower.includes(kw))) return 'samosa';
-  if (CATEGORY_KEYWORDS.pizza.some(kw => lower.includes(kw))) return 'pizza';
-  if (CATEGORY_KEYWORDS.burger.some(kw => lower.includes(kw))) return 'burger';
-  if (CATEGORY_KEYWORDS.coffee.some(kw => lower.includes(kw))) return 'coffee';
-  if (CATEGORY_KEYWORDS.cake.some(kw => lower.includes(kw))) return 'cake';
-  if (CATEGORY_KEYWORDS.indiansweets.some(kw => lower.includes(kw))) return 'indiansweets';
-  if (CATEGORY_KEYWORDS.indianfood.some(kw => lower.includes(kw))) return 'indianfood';
-  if (CATEGORY_KEYWORDS.food.some(kw => lower.includes(kw)) || /restaurant|dining|food|snack|dish|eat|curry/i.test(lower)) return 'food';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.samosa)) return 'samosa';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.pizza)) return 'pizza';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.burger)) return 'burger';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.coffee)) return 'coffee';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.cake)) return 'cake';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.indiansweets)) return 'indiansweets';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.indianfood)) return 'indianfood';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.food) || /\b(restaurant|dining|food|snack|dish|eat|curry)\b/i.test(lower)) return 'food';
 
-  // 2. Retail Product Verticals
-  if (CATEGORY_KEYWORDS.footwear.some(kw => lower.includes(kw))) return 'footwear';
-  if (CATEGORY_KEYWORDS.smartphone.some(kw => lower.includes(kw))) return 'smartphone';
-  if (CATEGORY_KEYWORDS.beauty.some(kw => lower.includes(kw))) return 'beauty';
-  if (CATEGORY_KEYWORDS.fashion.some(kw => lower.includes(kw))) return 'fashion';
-  if (CATEGORY_KEYWORDS.tech.some(kw => lower.includes(kw))) return 'tech';
+  // 2. Retail Product & Specific Consumer Goods Verticals
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.books)) return 'books';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.jewellery)) return 'jewellery';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.watches)) return 'watches';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.furniture)) return 'furniture';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.perfume)) return 'perfume';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.fitness)) return 'fitness';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.eyewear)) return 'eyewear';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.flowers)) return 'flowers';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.groceries)) return 'groceries';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.gaming)) return 'gaming';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.music)) return 'music';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.dentistry)) return 'dentistry';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.toys)) return 'toys';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.headphones)) return 'headphones';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.solar)) return 'solar';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.footwear)) return 'footwear';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.smartphone)) return 'smartphone';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.beauty)) return 'beauty';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.fashion)) return 'fashion';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.tech)) return 'tech';
 
-  // 3. Service & Real-World Verticals
-  if (CATEGORY_KEYWORDS.realestate.some(kw => lower.includes(kw))) return 'realestate';
-  if (CATEGORY_KEYWORDS.travel.some(kw => lower.includes(kw))) return 'travel';
-  if (CATEGORY_KEYWORDS.automotive.some(kw => lower.includes(kw))) return 'automotive';
-  if (CATEGORY_KEYWORDS.education.some(kw => lower.includes(kw))) return 'education';
-  if (CATEGORY_KEYWORDS.healthcare.some(kw => lower.includes(kw))) return 'healthcare';
+  // 3. Service & Real-World Verticals (Education, Real estate, Travel, Auto, Healthcare)
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.education)) return 'education';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.realestate)) return 'realestate';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.travel)) return 'travel';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.automotive)) return 'automotive';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.healthcare)) return 'healthcare';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.pets)) return 'pets';
 
   // 4. Festive
-  if (CATEGORY_KEYWORDS.festive.some(kw => lower.includes(kw))) return 'festive';
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.festive)) return 'festive';
 
   // 5. Generic E-commerce (last resort when no specific product is identified)
-  if (CATEGORY_KEYWORDS.ecommerce.some(kw => lower.includes(kw)) || /sale|offer|discount|deal|shop/i.test(lower)) {
+  if (matchKeywords(lower, CATEGORY_KEYWORDS.ecommerce) || /\b(sale|offer|discount|deal|shop)\b/i.test(lower)) {
     return 'ecommerce';
   }
 

@@ -319,6 +319,54 @@ export const SocialGeneratorPage = () => {
       // Category-specific fallback visuals that ALWAYS work (Unsplash verified high-speed CDN)
       const getCategoryFallbackImage = (text) => {
         const lower = (text || '').toLowerCase();
+        if (lower.includes('book') || lower.includes('novel') || lower.includes('library') || lower.includes('reading') || lower.includes('author') || lower.includes('literature') || lower.includes('textbook')) {
+          return 'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('jewel') || lower.includes('diamond') || lower.includes('gold') || lower.includes('necklace') || lower.includes('ring') || lower.includes('earring')) {
+          return 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('watch') || lower.includes('rolex') || lower.includes('chronograph') || lower.includes('timepiece')) {
+          return 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('furniture') || lower.includes('sofa') || lower.includes('couch') || lower.includes('table') || lower.includes('chair') || lower.includes('bed') || lower.includes('interior')) {
+          return 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('perfume') || lower.includes('fragrance') || lower.includes('cologne') || lower.includes('scent')) {
+          return 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('gym') || lower.includes('fitness') || lower.includes('workout') || lower.includes('muscle') || lower.includes('crossfit') || lower.includes('weight')) {
+          return 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('sunglass') || lower.includes('glass') || lower.includes('spectacle') || lower.includes('eyewear') || lower.includes('optical')) {
+          return 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('flower') || lower.includes('bouquet') || lower.includes('rose') || lower.includes('floral') || lower.includes('plant')) {
+          return 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('grocer') || lower.includes('supermarket') || lower.includes('vegetable') || lower.includes('fruit') || lower.includes('produce')) {
+          return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('game') || lower.includes('gaming') || lower.includes('playstation') || lower.includes('xbox') || lower.includes('esport')) {
+          return 'https://images.unsplash.com/photo-1600080972464-8e5f35f63d08?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('guitar') || lower.includes('music') || lower.includes('piano') || lower.includes('song') || lower.includes('instrument')) {
+          return 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('pet') || lower.includes('dog') || lower.includes('cat') || lower.includes('puppy') || lower.includes('vet')) {
+          return 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('dent') || lower.includes('teeth') || lower.includes('tooth') || lower.includes('smile') || lower.includes('oral')) {
+          return 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('toy') || lower.includes('lego') || lower.includes('doll') || lower.includes('kid')) {
+          return 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('headphone') || lower.includes('earbud') || lower.includes('airpod') || lower.includes('earphone') || lower.includes('speaker')) {
+          return 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=80';
+        }
+        if (lower.includes('solar') || lower.includes('green energy') || lower.includes('renewable')) {
+          return 'https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=1200&q=80';
+        }
         if (lower.includes('samosa') || lower.includes('snack') || lower.includes('mithai')) {
           return 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=1200&q=80';
         }
@@ -358,7 +406,7 @@ export const SocialGeneratorPage = () => {
         if (lower.includes('food') || lower.includes('restaurant') || lower.includes('dining')) {
           return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80';
         }
-        return 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80';
+        return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=80';
       };
 
       // If no image was returned by backend, generate verified category visual URL directly so it NEVER fails!
@@ -394,27 +442,35 @@ export const SocialGeneratorPage = () => {
     }
   };
 
-  // Image load error handler: smoothly cascade to verified proxy or guaranteed vector creative
+  // Image load error handler: smoothly cascade to verified proxy, category CDN, or guaranteed vector creative
   const handleImageError = () => {
-    console.warn('[SocialGen] Image failed to load, switching to guaranteed proxy or vector creative:', activeVisualUrl);
+    console.warn('[SocialGen] Image failed to load, switching to guaranteed backup:', activeVisualUrl);
     
-    // Attempt 1: If current URL was direct Unsplash, try routing via backend proxy
-    if (activeVisualUrl && activeVisualUrl.includes('images.unsplash.com') && !activeVisualUrl.includes('/api/poster/proxy')) {
-      const proxied = api.resolveImageUrl(activeVisualUrl);
+    // Attempt 1: If direct image failed (e.g. adblocker blocked direct CDN), try backend proxy
+    if (activeVisualUrl && (activeVisualUrl.startsWith('https://') || activeVisualUrl.startsWith('http://')) && !activeVisualUrl.includes('/api/poster/proxy')) {
+      const proxied = api.proxyImageUrl(activeVisualUrl);
       if (proxied && proxied !== activeVisualUrl) {
         setActiveVisualUrl(proxied);
         return;
       }
     }
 
-    // Attempt 2: Switch to guaranteed high-definition commercial vector creative Data URI (100% reliable)
-    const effectiveBrandName = brandName.trim() || user?.businessName || 'ZENVORA';
+    // Attempt 2: Switch to category-specific verified Unsplash asset
+    const effectiveBrand = brandName.trim() || user?.businessName || 'ZENVORA';
+    const fallbackCdn = getCategoryFallbackImage(`${topic} ${effectiveBrand} ${resolvedIndustry}`);
+    if (fallbackCdn && fallbackCdn !== activeVisualUrl) {
+      setActiveVisualUrl(fallbackCdn);
+      setPostImageUrl(fallbackCdn);
+      return;
+    }
+
+    // Attempt 3: Switch to guaranteed high-definition commercial vector creative Data URI (100% reliable)
     const effectiveOffer = offer.trim() || 'EXCLUSIVE DEAL';
-    const displayHeadline = extractedHeadline || `${effectiveBrandName}: ${effectiveOffer}`;
+    const displayHeadline = extractedHeadline || `${effectiveBrand}: ${effectiveOffer}`;
     const displayCta = extractedCta || ctaType || 'Shop Now →';
 
     const vectorCreative = createCommercialVectorCreative({
-      brand: effectiveBrandName,
+      brand: effectiveBrand,
       topic: displayHeadline,
       offer: effectiveOffer,
       cta: displayCta,
@@ -1231,12 +1287,12 @@ export const SocialGeneratorPage = () => {
                 </div>
 
                 {/* ── REAL AI-GENERATED ADVERTISING CREATIVE ── */}
-                <div className="w-full aspect-square bg-slate-900 relative overflow-hidden group">
+                <div className="w-full aspect-square bg-slate-800 relative overflow-hidden group">
                   {/* The Creative Visual Image */}
                   {activeVisualUrl ? (
                     <>
                       {!postImgLoaded && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900 text-slate-300">
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-slate-900/60 backdrop-blur-xs text-slate-200 pointer-events-none">
                           <RefreshCw size={24} className="animate-spin text-brand-teal" />
                           <span className="text-xs font-medium">Loading high-impact creative...</span>
                         </div>
@@ -1244,6 +1300,8 @@ export const SocialGeneratorPage = () => {
                       <img
                         src={postImgError ? createCommercialVectorCreative({ brand: effectiveBrandName, topic: displayHeadline, offer: effectiveOffer, cta: displayCta, category: resolvedIndustry || 'tech' }) : activeVisualUrl}
                         alt={topic}
+                        crossOrigin="anonymous"
+                        loading="eager"
                         referrerPolicy="no-referrer"
                         onLoad={() => {
                           setPostImgLoaded(true);
@@ -1254,7 +1312,7 @@ export const SocialGeneratorPage = () => {
                       />
                     </>
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400 p-6 text-center">
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-400 p-6 text-center">
                       <ImageIcon size={32} className="text-slate-500 mb-2" />
                       <p className="text-xs text-slate-300 font-medium max-w-xs">
                         Click below to instantly create an authentic commercial AI visual for this post.
@@ -1299,16 +1357,16 @@ export const SocialGeneratorPage = () => {
                   </div>
 
                   {/* Overlaid Advertising Typography & CTA Bar (Bottom Overlay) */}
-                  <div className="absolute inset-x-0 bottom-0 z-10 p-5 bg-gradient-to-t from-black/95 via-black/85 to-transparent text-white pt-16">
+                  <div className="absolute inset-x-0 bottom-0 z-10 p-4 bg-gradient-to-t from-black/90 via-black/60 to-transparent text-white pt-10">
                     <div className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wide text-amber-300 drop-shadow-md leading-tight break-words">
                       {displayHeadline}
                     </div>
-                    {displaySubheadline && (
+                    {displaySubheadline && displaySubheadline.trim() !== displayHeadline.trim() && (
                       <div className="text-[11px] sm:text-xs text-white/90 font-medium drop-shadow-sm mt-1 leading-snug break-words">
-                        {displaySubheadline}
+                        {displaySubheadline.replace(/[:\s]+$/, '')}
                       </div>
                     )}
-                    <div className="mt-2.5 flex items-center justify-between">
+                    <div className="mt-2 flex items-center justify-between">
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-md bg-white text-slate-950 shadow-sm uppercase tracking-wider hover:bg-slate-100 transition-colors">
                         {displayCta}
                       </span>

@@ -229,8 +229,40 @@ export const ImageGenerationPage = () => {
       // If backend did not return an imageUrl, create a verified category visual directly so it NEVER fails!
       if (!data?.imageUrl && !data?.dataUrl) {
         const lower = `${desc} ${brandName}`.toLowerCase();
-        let fallbackUrl = 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80';
-        if (lower.includes('samosa') || lower.includes('snack') || lower.includes('mithai')) {
+        let fallbackUrl = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=80';
+        if (lower.includes('book') || lower.includes('novel') || lower.includes('library') || lower.includes('reading') || lower.includes('author') || lower.includes('literature') || lower.includes('textbook')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('jewel') || lower.includes('diamond') || lower.includes('gold') || lower.includes('necklace') || lower.includes('ring') || lower.includes('earring')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('watch') || lower.includes('rolex') || lower.includes('chronograph') || lower.includes('timepiece')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('furniture') || lower.includes('sofa') || lower.includes('couch') || lower.includes('table') || lower.includes('chair') || lower.includes('bed') || lower.includes('interior')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('perfume') || lower.includes('fragrance') || lower.includes('cologne') || lower.includes('scent')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('gym') || lower.includes('fitness') || lower.includes('workout') || lower.includes('muscle') || lower.includes('crossfit') || lower.includes('weight')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('sunglass') || lower.includes('glass') || lower.includes('spectacle') || lower.includes('eyewear') || lower.includes('optical')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('flower') || lower.includes('bouquet') || lower.includes('rose') || lower.includes('floral') || lower.includes('plant')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('grocer') || lower.includes('supermarket') || lower.includes('vegetable') || lower.includes('fruit') || lower.includes('produce')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('game') || lower.includes('gaming') || lower.includes('playstation') || lower.includes('xbox') || lower.includes('esport')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1600080972464-8e5f35f63d08?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('guitar') || lower.includes('music') || lower.includes('piano') || lower.includes('song') || lower.includes('instrument')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('pet') || lower.includes('dog') || lower.includes('cat') || lower.includes('puppy') || lower.includes('vet')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('dent') || lower.includes('teeth') || lower.includes('tooth') || lower.includes('smile') || lower.includes('oral')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('toy') || lower.includes('lego') || lower.includes('doll') || lower.includes('kid')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('headphone') || lower.includes('earbud') || lower.includes('airpod') || lower.includes('earphone') || lower.includes('speaker')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('solar') || lower.includes('green energy') || lower.includes('renewable')) {
+          fallbackUrl = 'https://images.unsplash.com/photo-1497440001374-f26997328c1b?auto=format&fit=crop&w=1200&q=80';
+        } else if (lower.includes('samosa') || lower.includes('snack') || lower.includes('mithai')) {
           fallbackUrl = 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=1200&q=80';
         } else if (lower.includes('phone') || lower.includes('smart') || lower.includes('technova') || lower.includes('device') || lower.includes('oled')) {
           fallbackUrl = 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=1200&q=80';
@@ -817,11 +849,13 @@ export const ImageGenerationPage = () => {
                   <img
                     src={result.imageUrl}
                     alt={description}
+                    crossOrigin="anonymous"
+                    loading="eager"
                     referrerPolicy="no-referrer"
                     onLoad={() => setImgLoaded(true)}
                     onError={(e) => {
-                      if (e.target.src && e.target.src.includes('images.unsplash.com') && !e.target.src.includes('/api/poster/proxy')) {
-                        const proxied = api.resolveImageUrl(e.target.src);
+                      if (e.target.src && (e.target.src.startsWith('https://') || e.target.src.startsWith('http://')) && !e.target.src.includes('/api/poster/proxy')) {
+                        const proxied = api.proxyImageUrl(e.target.src);
                         if (proxied !== e.target.src) {
                           e.target.src = proxied;
                           return;
