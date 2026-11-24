@@ -359,7 +359,9 @@ Output strictly valid JSON with no markdown wrapping:
     const potentialBrand = words.find(w => w.length > 2 && /^[A-Z]/.test(w) && !['Special', 'Diwali', 'Summer', 'Winter', 'New', 'Fresh', 'Hot', 'Get'].includes(w)) || '';
 
     let headline = strictOffer ? `${potentialBrand ? potentialBrand + ' ' : ''}${strictOffer} Special` : `${potentialBrand ? potentialBrand + ' ' : ''}Special Campaign`;
-    let subheadline = `Experience exceptional commercial quality and verified value with ${potentialBrand || 'our collection'}.`;
+    let subheadline = strictOffer
+      ? `Enjoy ${strictOffer} on ${potentialBrand ? potentialBrand + ' ' : ''}${category !== 'default' ? category : 'our collection'}. Premium quality at limited-time promotional pricing.`
+      : `Discover authentic craftsmanship and exceptional performance with ${potentialBrand || 'our collection'} designed for ${description}.`;
     let offer = strictOffer || '';
     let cta = 'Shop Now →';
 

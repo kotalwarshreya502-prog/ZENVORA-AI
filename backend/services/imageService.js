@@ -338,10 +338,13 @@ export const ImageService = {
       fs.writeFileSync(localPath, finalBuffer);
 
       const relativeUrl = `/uploads/posters/${filename}`;
+      const base64Data = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
 
       return {
-        imageUrl: relativeUrl,
+        imageUrl: base64Data, // Instant 0ms base64 render — bypasses all network, CORS, and ephemeral disk wipes
         localUrl: relativeUrl,
+        fullImageUrl: relativeUrl,
+        dataUrl: base64Data,
         upstreamUrl: liveResult?.upstreamUrl || curatedAssetUrl || relativeUrl,
         prompt,
         width,
@@ -358,6 +361,7 @@ export const ImageService = {
     return {
       imageUrl: curatedAssetUrl,
       localUrl: curatedAssetUrl,
+      fullImageUrl: curatedAssetUrl,
       upstreamUrl: curatedAssetUrl,
       proxyUrl: `/api/poster/proxy?url=${encodeURIComponent(curatedAssetUrl)}`,
       prompt,

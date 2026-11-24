@@ -31,6 +31,7 @@ import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { api } from '../../services/api';
 import { enhancePrompt, IMAGE_MODELS, PROMPT_PRESETS } from '../../utils/promptEnhancer';
+import { createCommercialVectorCreative } from '../../utils/creativeVisualGenerator';
 
 // ── Size & Aspect Ratio Presets ───────────────────────────────────────────────
 export const SIZE_PRESETS = [
@@ -226,7 +227,7 @@ export const ImageGenerationPage = () => {
       }
 
       // If backend did not return an imageUrl, create a verified category visual directly so it NEVER fails!
-      if (!data?.imageUrl) {
+      if (!data?.imageUrl && !data?.dataUrl) {
         const lower = `${desc} ${brandName}`.toLowerCase();
         let fallbackUrl = 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80';
         if (lower.includes('samosa') || lower.includes('snack') || lower.includes('mithai')) {
@@ -256,7 +257,7 @@ export const ImageGenerationPage = () => {
         }
 
         data = {
-          imageUrl: fallbackUrl,
+          imageUrl: api.resolveImageUrl(fallbackUrl),
           fullImageUrl: fallbackUrl,
           localUrl: fallbackUrl,
           prompt: desc,
@@ -275,9 +276,10 @@ export const ImageGenerationPage = () => {
 
       setPipelineStage(3);
 
+      const rawVisualUrl = data.dataUrl || data.imageUrl || data.fullImageUrl;
       const resolvedData = {
         ...data,
-        imageUrl: api.resolveImageUrl(data.fullImageUrl || data.imageUrl),
+        imageUrl: api.resolveImageUrl(rawVisualUrl),
       };
 
       setResult(resolvedData);
@@ -344,15 +346,24 @@ export const ImageGenerationPage = () => {
 
       // Load background image
       const bgImg = new Image();
-      bgImg.crossOrigin = 'anonymous';
+      if (!result.imageUrl.startsWith('data:')) {
+        bgImg.crossOrigin = 'anonymous';
+      }
 
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve) => {
         bgImg.onload = resolve;
         bgImg.onerror = () => {
+          const vectorFallback = createCommercialVectorCreative({
+            brand: brandName || 'ZENVORA',
+            topic: headline || description,
+            offer: offer || 'SPECIAL OFFER',
+            cta: cta || 'Shop Now →',
+            category: industry || 'tech',
+          });
           bgImg.crossOrigin = null;
-          bgImg.src = result.imageUrl;
+          bgImg.src = vectorFallback;
           bgImg.onload = resolve;
-          bgImg.onerror = reject;
+          bgImg.onerror = resolve;
         };
         bgImg.src = result.imageUrl;
       });
@@ -806,20 +817,24 @@ export const ImageGenerationPage = () => {
                   <img
                     src={result.imageUrl}
                     alt={description}
+                    referrerPolicy="no-referrer"
                     onLoad={() => setImgLoaded(true)}
                     onError={(e) => {
-                      const lower = `${description} ${brandName}`.toLowerCase();
-                      let fallback = 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80';
-                      if (lower.includes('samosa') || lower.includes('food')) {
-                        fallback = 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=1200&q=80';
-                      } else if (lower.includes('phone') || lower.includes('smart') || lower.includes('technova')) {
-                        fallback = 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&w=1200&q=80';
-                      } else if (lower.includes('shoe') || lower.includes('sneaker') || lower.includes('nike')) {
-                        fallback = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=80';
+                      if (e.target.src && e.target.src.includes('images.unsplash.com') && !e.target.src.includes('/api/poster/proxy')) {
+                        const proxied = api.resolveImageUrl(e.target.src);
+                        if (proxied !== e.target.src) {
+                          e.target.src = proxied;
+                          return;
+                        }
                       }
-                      if (e.target.src !== fallback) {
-                        e.target.src = fallback;
-                      }
+                      const vectorFallback = createCommercialVectorCreative({
+                        brand: brandName || 'ZENVORA',
+                        topic: headline || description,
+                        offer: offer || 'SPECIAL OFFER',
+                        cta: cta || 'Shop Now →',
+                        category: industry || 'tech',
+                      });
+                      e.target.src = vectorFallback;
                       setImgLoaded(true);
                     }}
                     className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${

@@ -524,6 +524,10 @@ Format each as:
       fallbackArticle.content += `\n\n---\n\n## Research & Verified References\n\n${refLines}`;
       fallbackArticle.verifiedSourcesCount = sources.length;
     }
+    fallbackArticle.title = fallbackArticle.headline || fallbackArticle.title || safeTopic;
+    fallbackArticle.wordCount = fallbackArticle.content.split(/\s+/).filter(Boolean).length;
+    fallbackArticle.citations = sources;
+    fallbackArticle.readingTime = Math.max(3, Math.ceil(fallbackArticle.wordCount / 220));
     return fallbackArticle;
   }
 

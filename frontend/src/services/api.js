@@ -23,7 +23,19 @@ const baseURL = resolveBaseUrl();
 export const resolveImageUrl = (url) => {
   if (!url || typeof url !== 'string') return '';
 
-  // 1. Force HTTPS on production or when current page is served over HTTPS (prevents Mixed Content blocks)
+  // 1. Instant data URI pass-through (100% reliable, zero network latency)
+  if (url.startsWith('data:')) {
+    return url;
+  }
+
+  const origin = baseURL.replace(/\/api\/?$/, '');
+
+  // 2. Proxy external Unsplash images through backend to bypass ISP / CORS / ad-blocker restrictions
+  if (url.includes('images.unsplash.com') && !url.includes('/api/poster/proxy')) {
+    return `${origin}/api/poster/proxy?url=${encodeURIComponent(url)}`;
+  }
+
+  // 3. Force HTTPS on production or when current page is served over HTTPS (prevents Mixed Content blocks)
   if (url.startsWith('http://')) {
     const isProdHost = url.includes('render.com') || url.includes('zenvora') || (typeof window !== 'undefined' && window.location.protocol === 'https:');
     if (isProdHost) {
@@ -31,12 +43,11 @@ export const resolveImageUrl = (url) => {
     }
   }
 
-  if (url.startsWith('https://') || url.startsWith('http://') || url.startsWith('data:')) {
+  if (url.startsWith('https://') || url.startsWith('http://')) {
     return url;
   }
 
-  // 2. Resolve relative path against API origin
-  const origin = baseURL.replace(/\/api\/?$/, '');
+  // 4. Resolve relative path against API origin
   const cleanPath = url.startsWith('/') ? url : `/${url}`;
   return `${origin}${cleanPath}`;
 };

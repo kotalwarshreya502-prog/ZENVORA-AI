@@ -207,17 +207,18 @@ export const generatePoster = async (req, res) => {
     const isHttps = forwardedProto === 'https' || req.secure || host.includes('render.com') || host.includes('zenvora') || process.env.NODE_ENV === 'production';
     const protocol = isHttps ? 'https' : 'http';
     const rawLocalUrl = imageResult.localUrl || imageResult.imageUrl || '';
-    const fullImageUrl = (rawLocalUrl.startsWith('http://') || rawLocalUrl.startsWith('https://'))
+    const fullImageUrl = (rawLocalUrl.startsWith('http://') || rawLocalUrl.startsWith('https://') || rawLocalUrl.startsWith('data:'))
       ? rawLocalUrl
       : `${protocol}://${host}${rawLocalUrl.startsWith('/') ? '' : '/'}${rawLocalUrl}`;
 
     const output = {
-      imageUrl: fullImageUrl,
+      imageUrl: imageResult.dataUrl || imageResult.imageUrl || fullImageUrl,
+      dataUrl: imageResult.dataUrl || '',
       localUrl: rawLocalUrl,
       fullImageUrl,
       upstreamUrl: imageResult.upstreamUrl || fullImageUrl,
       proxyUrl: (rawLocalUrl.startsWith('http://') || rawLocalUrl.startsWith('https://'))
-        ? rawLocalUrl
+        ? `/api/poster/proxy?url=${encodeURIComponent(rawLocalUrl)}`
         : `/api/poster/proxy?url=${encodeURIComponent(imageResult.upstreamUrl || fullImageUrl)}`,
       imageDownloaded: true,
       imagePrompt,
